@@ -1,515 +1,511 @@
-"use client";
+"use client"
 
-/**
- * Connect Four Game Component
- * Main game component with UI and interaction logic
- */
+import { useState, useCallback, useMemo, useEffect } from "react"
+import { createInitialState, makeMove, isValidMove, findLowestRow } from "./gameLogic"
+import { getAIMove, getDifficultyDescription } from "./aiLogic"
+import type { GameState, GameMode, AIDifficulty } from "./types"
+import styles from "./ConnectFour.module.css"
 
-import { useState, useCallback, useMemo, useEffect } from "react";
-import {
-  createInitialState,
-  makeMove,
-  isValidMove,
-  findLowestRow,
-} from "./gameLogic";
-import { getAIMove, getDifficultyDescription } from "./aiLogic";
-import type { GameState, GameMode, AIDifficulty } from "./types";
-import styles from "./ConnectFour.module.css";
-
-// Player colors - rich color palette (defined outside component to prevent recreation)
+// Retro arcade neon colors
 const playerColors = {
   1: {
-    primary: "#FF6B9D", // Pink/Rose
-    secondary: "#C94277",
-    glow: "rgba(255, 107, 157, 0.4)",
+    primary: "#FF00FF", // Magenta
+    secondary: "#FF1493",
+    glow: "rgba(255, 0, 255, 0.6)",
+    name: "PLAYER 1",
   },
   2: {
-    primary: "#4ECDC4", // Turquoise
-    secondary: "#3BA39B",
-    glow: "rgba(78, 205, 196, 0.4)",
+    primary: "#00FFFF", // Cyan
+    secondary: "#00CED1",
+    glow: "rgba(0, 255, 255, 0.6)",
+    name: "PLAYER 2",
   },
-} as const;
+} as const
 
 export const ConnectFour = () => {
-  const [gameState, setGameState] = useState<GameState>(createInitialState());
-  const [hoveredColumn, setHoveredColumn] = useState<number | null>(null);
-  const [animatingCell, setAnimatingCell] = useState<string | null>(null);
-  const [shakeColumn, setShakeColumn] = useState<number | null>(null);
-  const [gameMode, setGameMode] = useState<GameMode | null>(null);
-  const [aiDifficulty, setAiDifficulty] = useState<AIDifficulty>("medium");
-  const [isAIThinking, setIsAIThinking] = useState(false);
+  const [gameState, setGameState] = useState<GameState>(createInitialState())
+  const [hoveredColumn, setHoveredColumn] = useState<number | null>(null)
+  const [animatingCell, setAnimatingCell] = useState<string | null>(null)
+  const [shakeColumn, setShakeColumn] = useState<number | null>(null)
+  const [gameMode, setGameMode] = useState<GameMode | null>(null)
+  const [aiDifficulty, setAiDifficulty] = useState<AIDifficulty>("medium")
+  const [isAIThinking, setIsAIThinking] = useState(false)
 
-  // Reset game
   const handleReset = useCallback(() => {
-    setGameState(createInitialState());
-    setHoveredColumn(null);
-    setAnimatingCell(null);
-    setShakeColumn(null);
-    setIsAIThinking(false);
-  }, []);
+    setGameState(createInitialState())
+    setHoveredColumn(null)
+    setAnimatingCell(null)
+    setShakeColumn(null)
+    setIsAIThinking(false)
+  }, [])
 
-  // Start new game with mode selection
   const handleStartGame = useCallback((mode: GameMode) => {
-    setGameMode(mode);
-    setGameState(createInitialState());
-  }, []);
+    setGameMode(mode)
+    setGameState(createInitialState())
+  }, [])
 
-  // Go back to mode selection
   const handleBackToMenu = useCallback(() => {
-    setGameMode(null);
-    setGameState(createInitialState());
-    setIsAIThinking(false);
-  }, []);
+    setGameMode(null)
+    setGameState(createInitialState())
+    setIsAIThinking(false)
+  }, [])
 
-  // AI move logic - triggers when it's AI's turn
+  // AI move logic
   useEffect(() => {
-    // Only trigger if it's AI mode, playing, and player 2's turn
-    if (
-      gameMode === "ai" &&
-      gameState.status === "playing" &&
-      gameState.currentPlayer === 2
-    ) {
-      // Don't trigger if AI is already processing
-      if (isAIThinking) return;
-
-      console.log("AI's turn - starting to think...");
-      setIsAIThinking(true);
-
-      // Add delay for more natural feel
-      const delay =
-        aiDifficulty === "easy" ? 500 : aiDifficulty === "medium" ? 800 : 1200;
+    if (gameMode === "ai" && gameState.status === "playing" && gameState.currentPlayer === 2 && !isAIThinking) {
+      setIsAIThinking(true)
+      const delay = aiDifficulty === "easy" ? 500 : aiDifficulty === "medium" ? 800 : 1200
 
       const timeoutId = setTimeout(() => {
-        console.log("AI making move...");
-        const aiCol = getAIMove(gameState.board, 2, aiDifficulty);
-        const row = findLowestRow(gameState.board, aiCol);
+        const aiCol = getAIMove(gameState.board, 2, aiDifficulty)
+        const row = findLowestRow(gameState.board, aiCol)
 
         if (row !== -1) {
-          const cellKey = `${row}-${aiCol}`;
-          setAnimatingCell(cellKey);
+          const cellKey = `${row}-${aiCol}`
+          setAnimatingCell(cellKey)
 
           setTimeout(() => {
-            setGameState((prev) => makeMove(prev, aiCol));
-            setAnimatingCell(null);
-            setIsAIThinking(false);
-            console.log("AI move complete");
-          }, 100);
+            setGameState((prev) => makeMove(prev, aiCol))
+            setAnimatingCell(null)
+            setIsAIThinking(false)
+          }, 600)
         } else {
-          console.error("AI couldn't find valid move");
-          setIsAIThinking(false);
+          setIsAIThinking(false)
         }
-      }, delay);
+      }, delay)
 
-      return () => {
-        console.log("Cleanup AI timeout");
-        clearTimeout(timeoutId);
-      };
+      return () => clearTimeout(timeoutId)
     }
-  }, [gameState.moveCount, gameMode]);
+  }, [gameState.moveCount, gameMode, aiDifficulty, isAIThinking, gameState.status, gameState.currentPlayer])
 
-  // Handle column click
   const handleColumnClick = useCallback(
     (col: number) => {
-      if (gameState.status !== "playing" || isAIThinking) return;
-
-      // In AI mode, only allow player 1 to click
-      if (gameMode === "ai" && gameState.currentPlayer === 2) return;
+      if (gameState.status !== "playing" || isAIThinking) return
+      if (gameMode === "ai" && gameState.currentPlayer === 2) return
 
       if (!isValidMove(gameState.board, col)) {
-        // Shake animation for invalid move
-        setShakeColumn(col);
-        setTimeout(() => setShakeColumn(null), 300);
-        return;
+        setShakeColumn(col)
+        setTimeout(() => setShakeColumn(null), 300)
+        return
       }
 
-      const row = findLowestRow(gameState.board, col);
-      const cellKey = `${row}-${col}`;
+      const row = findLowestRow(gameState.board, col)
+      const cellKey = `${row}-${col}`
+      setAnimatingCell(cellKey)
 
-      // Trigger drop animation
-      setAnimatingCell(cellKey);
-
-      // Make the move after a brief delay to allow animation setup
       setTimeout(() => {
-        setGameState((prev) => makeMove(prev, col));
-        setAnimatingCell(null);
-      }, 100);
+        setGameState((prev) => makeMove(prev, col))
+        setAnimatingCell(null)
+      }, 600)
     },
-    [gameState, isAIThinking, gameMode]
-  );
+    [gameState, isAIThinking, gameMode],
+  )
 
-  // Get cell classes for styling
   const getCellClasses = useCallback(
     (row: number, col: number, value: number | null) => {
-      const cellKey = `${row}-${col}`;
-      const isWinning = gameState.winningCells.some(
-        ([r, c]) => r === row && c === col
-      );
-      const isAnimating = animatingCell === cellKey;
+      const cellKey = `${row}-${col}`
+      const isWinning = gameState.winningCells.some(([r, c]) => r === row && c === col)
+      const isAnimating = animatingCell === cellKey
 
-      let classes =
-        "relative w-full aspect-square rounded-full transition-all duration-300 ";
+      let classes = "relative w-full aspect-square rounded-full transition-all duration-300 "
 
       if (value !== null) {
-        classes += isAnimating ? styles["disc-drop"] : "";
-        classes += isWinning ? ` ${styles["win-pulse"]}` : "";
+        classes += isAnimating ? styles["disc-drop"] : ""
+        classes += isWinning ? ` ${styles["win-pulse"]}` : ""
       }
 
-      return classes;
+      return classes
     },
-    [gameState.winningCells, animatingCell]
-  );
+    [gameState.winningCells, animatingCell],
+  )
 
-  // Get cell background color
   const getCellBackground = useCallback((value: number | null) => {
     if (value === null) {
-      return "bg-white/10";
+      return "bg-black/40 border-2 border-cyan-500/20"
     }
-    return value === 1 ? "bg-[#FF6B9D]" : "bg-[#4ECDC4]";
-  }, []);
+    return value === 1 ? "bg-[#FF00FF]" : "bg-[#00FFFF]"
+  }, [])
 
-  // Current player color
-  const currentColor = useMemo(
-    () => playerColors[gameState.currentPlayer],
-    [gameState.currentPlayer]
-  );
+  const currentColor = useMemo(() => playerColors[gameState.currentPlayer], [gameState.currentPlayer])
 
   // Mode Selection Screen
   if (gameMode === null) {
     return (
-      <div className="w-full max-w-2xl mx-auto px-4 py-6">
-        {/* Header */}
-        <div className={`text-center mb-8 ${styles["slide-down"]}`}>
-          <h1
-            className="text-4xl md:text-5xl font-bold mb-2 bg-clip-text text-transparent"
-            style={{
-              backgroundImage:
-                "linear-gradient(135deg, #FF6B9D 0%, #4ECDC4 100%)",
-            }}
-          >
-            Connect Four
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400 text-sm md:text-base">
-            Choose your game mode
-          </p>
-        </div>
-
-        {/* Mode Selection */}
-        <div className="space-y-4">
-          {/* Player vs Player */}
-          <button
-            onClick={() => handleStartGame("pvp")}
-            className={`
-              w-full p-6 rounded-2xl
-              bg-gradient-to-br from-purple-500 to-pink-500
-              hover:from-purple-600 hover:to-pink-600
-              text-white font-semibold text-lg
-              shadow-lg hover:shadow-xl
-              transition-all duration-200
-              active:scale-95
-              ${styles["button-press"]}
-            `}
-          >
-            <div className="flex items-center justify-center gap-3 mb-2">
-              <span className="text-2xl">👥</span>
-              <span>Player vs Player</span>
+      <div className="min-h-screen bg-gradient-to-b from-[#0a0a1a] via-[#1a0a2e] to-[#0a0a1a] flex items-center justify-center p-4">
+        <div className="w-full max-w-2xl">
+          {/* Retro Header */}
+          <div className={`text-center mb-12 ${styles["slide-down"]}`}>
+            <h1
+              className={`text-6xl md:text-7xl font-bold mb-4 ${styles["neon-text"]} font-mono tracking-wider`}
+              style={{
+                color: "#FFD700",
+                textShadow:
+                  "0 0 10px #FFD700, 0 0 20px #FFD700, 0 0 30px #FFD700, 0 0 40px #FF00FF, 0 0 70px #FF00FF, 0 0 80px #FF00FF, 0 0 100px #FF00FF",
+              }}
+            >
+              CONNECT 4
+            </h1>
+            <div className="flex items-center justify-center gap-2 text-cyan-400 text-sm md:text-base font-mono">
+              <span className="animate-pulse">▶</span>
+              <p>ARCADE EDITION</p>
+              <span className="animate-pulse">◀</span>
             </div>
-            <p className="text-sm opacity-90">Play against a friend locally</p>
-          </button>
+          </div>
 
-          {/* Player vs AI */}
-          <button
-            onClick={() => handleStartGame("ai")}
-            className={`
-              w-full p-6 rounded-2xl
-              bg-gradient-to-br from-blue-500 to-cyan-500
-              hover:from-blue-600 hover:to-cyan-600
-              text-white font-semibold text-lg
-              shadow-lg hover:shadow-xl
-              transition-all duration-200
-              active:scale-95
-              ${styles["button-press"]}
-            `}
-          >
-            <div className="flex items-center justify-center gap-3 mb-2">
-              <span className="text-2xl">🤖</span>
-              <span>Player vs AI</span>
-            </div>
-            <p className="text-sm opacity-90">Challenge the computer</p>
-          </button>
-        </div>
+          {/* Mode Selection */}
+          <div className="space-y-6 mb-8">
+            <button
+              onClick={() => handleStartGame("pvp")}
+              className={`
+                w-full p-8 rounded-xl relative overflow-hidden
+                bg-gradient-to-r from-purple-900/50 to-pink-900/50
+                border-4 border-purple-500
+                hover:border-pink-500
+                text-white font-bold text-xl md:text-2xl font-mono
+                shadow-[0_0_30px_rgba(255,0,255,0.5)]
+                hover:shadow-[0_0_50px_rgba(255,0,255,0.8)]
+                transition-all duration-300
+                active:scale-95
+                ${styles["crt-effect"]}
+              `}
+            >
+              <div className="relative z-10">
+                <div className="flex items-center justify-center gap-4 mb-2">
+                  <span className="text-4xl">👥</span>
+                  <span className={styles["neon-text"]} style={{ color: "#FF00FF" }}>
+                    PLAYER VS PLAYER
+                  </span>
+                </div>
+                <p className="text-sm text-purple-300 font-normal">Challenge a friend locally</p>
+              </div>
+            </button>
 
-        {/* AI Difficulty Selection */}
-        {gameMode === null && (
-          <div className="mt-8 bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10">
-            <h3 className="text-lg font-semibold mb-4 text-center">
-              AI Difficulty
+            <button
+              onClick={() => handleStartGame("ai")}
+              className={`
+                w-full p-8 rounded-xl relative overflow-hidden
+                bg-gradient-to-r from-cyan-900/50 to-blue-900/50
+                border-4 border-cyan-500
+                hover:border-blue-500
+                text-white font-bold text-xl md:text-2xl font-mono
+                shadow-[0_0_30px_rgba(0,255,255,0.5)]
+                hover:shadow-[0_0_50px_rgba(0,255,255,0.8)]
+                transition-all duration-300
+                active:scale-95
+                ${styles["crt-effect"]}
+              `}
+            >
+              <div className="relative z-10">
+                <div className="flex items-center justify-center gap-4 mb-2">
+                  <span className="text-4xl">🤖</span>
+                  <span className={styles["neon-text"]} style={{ color: "#00FFFF" }}>
+                    PLAYER VS AI
+                  </span>
+                </div>
+                <p className="text-sm text-cyan-300 font-normal">Battle the computer</p>
+              </div>
+            </button>
+          </div>
+
+          {/* AI Difficulty */}
+          <div className={`${styles["arcade-frame"]} ${styles["crt-effect"]}`}>
+            <h3
+              className="text-xl font-bold mb-6 text-center font-mono"
+              style={{
+                color: "#FFD700",
+                textShadow: "0 0 10px #FFD700, 0 0 20px #FFD700",
+              }}
+            >
+              ⚙️ AI DIFFICULTY ⚙️
             </h3>
-            <div className="space-y-3">
+            <div className="space-y-4">
               {(["easy", "medium", "hard"] as AIDifficulty[]).map((diff) => (
                 <button
                   key={diff}
                   onClick={() => setAiDifficulty(diff)}
                   className={`
-                    w-full p-4 rounded-xl text-left
-                    transition-all duration-200
+                    w-full p-5 rounded-lg text-left font-mono
+                    transition-all duration-200 border-2
                     ${
                       aiDifficulty === diff
-                        ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg"
-                        : "bg-white/5 hover:bg-white/10"
+                        ? "bg-gradient-to-r from-yellow-500/30 to-orange-500/30 border-yellow-400 shadow-[0_0_20px_rgba(255,215,0,0.5)]"
+                        : "bg-black/30 border-gray-600 hover:border-gray-400"
                     }
                   `}
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="font-semibold capitalize">{diff}</div>
-                      <div className="text-sm opacity-75 mt-1">
-                        {getDifficultyDescription(diff)}
+                      <div
+                        className="font-bold text-lg uppercase mb-1"
+                        style={{
+                          color: diff === "easy" ? "#00FF00" : diff === "medium" ? "#FFD700" : "#FF0000",
+                        }}
+                      >
+                        {diff === "easy" && "🟢 "}
+                        {diff === "medium" && "🟡 "}
+                        {diff === "hard" && "🔴 "}
+                        {diff}
                       </div>
+                      <div className="text-sm text-gray-400">{getDifficultyDescription(diff)}</div>
                     </div>
-                    {aiDifficulty === diff && <span>✓</span>}
+                    {aiDifficulty === diff && <span className="text-2xl animate-pulse">✓</span>}
                   </div>
                 </button>
               ))}
             </div>
           </div>
-        )}
+        </div>
       </div>
-    );
+    )
   }
 
+  // Game Screen
   return (
-    <div className="w-full max-w-2xl mx-auto px-4 py-6">
-      {/* Game Header */}
-      <div className={`text-center mb-6 ${styles["slide-down"]}`}>
-        <h1
-          className="text-4xl md:text-5xl font-bold mb-2 bg-clip-text text-transparent"
-          style={{
-            backgroundImage:
-              "linear-gradient(135deg, #FF6B9D 0%, #4ECDC4 100%)",
-          }}
-        >
-          Connect Four
-        </h1>
-        <p className="text-gray-600 dark:text-gray-400 text-sm md:text-base">
-          Drop discs to get 4 in a row!
-        </p>
-      </div>
+    <div className="min-h-screen bg-gradient-to-b from-[#0a0a1a] via-[#1a0a2e] to-[#0a0a1a] flex items-center justify-center p-4">
+      <div className="w-full max-w-3xl">
+        {/* Game Header */}
+        <div className={`text-center mb-6 ${styles["slide-down"]}`}>
+          <h1
+            className={`text-5xl md:text-6xl font-bold mb-2 ${styles["neon-text"]} font-mono`}
+            style={{
+              color: "#FFD700",
+              textShadow: "0 0 10px #FFD700, 0 0 20px #FFD700, 0 0 30px #FFD700, 0 0 40px #FF00FF",
+            }}
+          >
+            CONNECT 4
+          </h1>
+          <p className="text-cyan-400 text-sm font-mono flex items-center justify-center gap-2">
+            <span className="animate-pulse">▶</span>
+            DROP DISCS TO GET 4 IN A ROW
+            <span className="animate-pulse">◀</span>
+          </p>
+        </div>
 
-      {/* Status Display */}
-      <div className={`mb-6 ${styles["fade-in"]}`}>
-        <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-4 border border-white/10">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            {/* Current Player Indicator */}
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                Current Turn:
-              </span>
-              <div className="flex items-center gap-2">
-                <div
-                  className={`w-8 h-8 rounded-full ${styles["glow-effect"]}`}
+        {/* Status Display */}
+        <div className={`mb-6 ${styles["fade-in"]}`}>
+          <div className={`${styles["arcade-frame"]} ${styles["crt-effect"]}`}>
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              {/* Current Player */}
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-mono text-gray-400">CURRENT:</span>
+                <div className="flex items-center gap-2">
+                  <div
+                    className={`w-10 h-10 rounded-full ${styles["glow-effect"]} border-2`}
+                    style={{
+                      backgroundColor: currentColor.primary,
+                      borderColor: currentColor.primary,
+                      boxShadow: `0 0 20px ${currentColor.glow}, 0 0 40px ${currentColor.glow}`,
+                    }}
+                  />
+                  <span className="text-xl font-bold font-mono" style={{ color: currentColor.primary }}>
+                    {gameMode === "ai" && gameState.currentPlayer === 2
+                      ? "AI 🤖"
+                      : gameMode === "ai" && gameState.currentPlayer === 1
+                        ? "YOU"
+                        : currentColor.name}
+                  </span>
+                </div>
+              </div>
+
+              {/* Move Counter */}
+              <div className="text-sm font-mono">
+                <span className="text-gray-400">MOVES: </span>
+                <span
+                  className="font-bold text-xl"
                   style={{
-                    backgroundColor: currentColor.primary,
-                    boxShadow: `0 0 15px ${currentColor.glow}`,
+                    color: "#FFD700",
+                    textShadow: "0 0 10px #FFD700",
                   }}
-                />
-                <span className="text-lg font-bold">
-                  {gameMode === "ai" && gameState.currentPlayer === 2
-                    ? "AI 🤖"
-                    : gameMode === "ai" && gameState.currentPlayer === 1
-                    ? "You"
-                    : `Player ${gameState.currentPlayer}`}
+                >
+                  {gameState.moveCount}
                 </span>
               </div>
             </div>
 
-            {/* Move Counter */}
-            <div className="text-sm text-gray-600 dark:text-gray-400">
-              Moves: <span className="font-bold">{gameState.moveCount}</span>
+            {/* Game Over Message */}
+            {gameState.status !== "playing" && (
+              <div className={`mt-4 ${styles["bounce-in"]}`}>
+                <div
+                  className={`text-center py-4 px-6 rounded-xl font-bold text-2xl font-mono border-4 ${styles["neon-text"]}`}
+                  style={{
+                    background:
+                      gameState.status === "won"
+                        ? `linear-gradient(135deg, ${
+                            playerColors[gameState.winner!].primary
+                          }20, ${playerColors[gameState.winner!].secondary}20)`
+                        : "linear-gradient(135deg, #FFD70020, #FFA50020)",
+                    borderColor: gameState.status === "won" ? playerColors[gameState.winner!].primary : "#FFD700",
+                    color: gameState.status === "won" ? playerColors[gameState.winner!].primary : "#FFD700",
+                    boxShadow:
+                      gameState.status === "won"
+                        ? `0 0 30px ${playerColors[gameState.winner!].glow}`
+                        : "0 0 30px rgba(255, 215, 0, 0.5)",
+                  }}
+                >
+                  {gameState.status === "won"
+                    ? gameMode === "ai"
+                      ? gameState.winner === 1
+                        ? "🎉 VICTORY! 🎉"
+                        : "💀 AI WINS! 💀"
+                      : `🎉 ${playerColors[gameState.winner!].name} WINS! 🎉`
+                    : "🤝 DRAW GAME! 🤝"}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Game Board */}
+        <div className={`mb-6 ${styles["board-entrance"]}`}>
+          <div className={`${styles["arcade-frame"]} ${styles["crt-effect"]} relative`}>
+            {/* Column Preview */}
+            {hoveredColumn !== null &&
+              gameState.status === "playing" &&
+              isValidMove(gameState.board, hoveredColumn) &&
+              !isAIThinking && (
+                <div className="absolute top-0 left-0 right-0 pointer-events-none z-20 p-2">
+                  <div className="grid grid-cols-7 gap-3 md:gap-4">
+                    {Array.from({ length: 7 }).map((_, colIndex) => (
+                      <div
+                        key={colIndex}
+                        className="aspect-square flex items-center justify-center"
+                        style={{
+                          visibility: colIndex === hoveredColumn ? "visible" : "hidden",
+                        }}
+                      >
+                        <div
+                          className={`w-10 h-10 md:w-12 md:h-12 rounded-full ${styles["preview-disc"]} border-2`}
+                          style={{
+                            backgroundColor: currentColor.primary,
+                            borderColor: currentColor.primary,
+                            opacity: 0.7,
+                            boxShadow: `0 0 20px ${currentColor.glow}`,
+                          }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+            {/* Board Grid */}
+            <div className="grid grid-cols-7 gap-3 md:gap-4 p-2">
+              {gameState.board.map((row, rowIndex) =>
+                row.map((cell, colIndex) => (
+                  <button
+                    key={`${rowIndex}-${colIndex}`}
+                    onClick={() => handleColumnClick(colIndex)}
+                    onMouseEnter={() => setHoveredColumn(colIndex)}
+                    onMouseLeave={() => setHoveredColumn(null)}
+                    disabled={gameState.status !== "playing" || isAIThinking}
+                    className={`
+                      aspect-square bg-black/60 rounded-xl p-2
+                      border-2 border-cyan-500/30
+                      ${
+                        gameState.status === "playing" && !isAIThinking
+                          ? "hover:bg-cyan-500/10 hover:border-cyan-400 active:scale-90 cursor-pointer"
+                          : "cursor-not-allowed"
+                      }
+                      transition-all duration-200
+                      ${shakeColumn === colIndex ? styles["shake"] : ""}
+                    `}
+                  >
+                    <div className={getCellClasses(rowIndex, colIndex, cell)}>
+                      <div
+                        className={`w-full h-full rounded-full ${getCellBackground(cell)}`}
+                        style={
+                          cell !== null
+                            ? {
+                                boxShadow: `0 0 15px ${playerColors[cell].glow}, 0 0 30px ${playerColors[cell].glow}, inset 0 0 10px rgba(255,255,255,0.3)`,
+                              }
+                            : {}
+                        }
+                      />
+                    </div>
+                  </button>
+                )),
+              )}
             </div>
           </div>
-
-          {/* Game Over Message */}
-          {gameState.status !== "playing" && (
-            <div className={`mt-4 ${styles["bounce-in"]}`}>
-              <div
-                className="text-center py-3 px-4 rounded-xl font-bold text-lg"
-                style={{
-                  background:
-                    gameState.status === "won"
-                      ? `linear-gradient(135deg, ${
-                          playerColors[gameState.winner!].primary
-                        }, ${playerColors[gameState.winner!].secondary})`
-                      : "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                  color: "white",
-                }}
-              >
-                {gameState.status === "won"
-                  ? gameMode === "ai"
-                    ? gameState.winner === 1
-                      ? "🎉 You Win! 🎉"
-                      : "🤖 AI Wins! 🤖"
-                    : `🎉 Player ${gameState.winner} Wins! 🎉`
-                  : "🤝 Draw Game! 🤝"}
-              </div>
-            </div>
-          )}
         </div>
-      </div>
 
-      {/* Game Board */}
-      <div className={`mb-6 ${styles["board-entrance"]}`}>
-        <div
-          className="relative p-4 rounded-3xl shadow-2xl"
-          style={{
-            background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-          }}
-        >
-          {/* Column Preview */}
-          {hoveredColumn !== null &&
-            gameState.status === "playing" &&
-            isValidMove(gameState.board, hoveredColumn) && (
-              <div
-                className="absolute top-2 flex justify-center pointer-events-none z-10"
-                style={{
-                  left: `${(hoveredColumn / 7) * 100 + 100 / 14}%`,
-                  transform: "translateX(-50%)",
-                }}
-              >
+        {/* Game Controls */}
+        <div className="flex gap-4 justify-center flex-wrap mb-6">
+          <button
+            onClick={handleBackToMenu}
+            className={`
+              px-8 py-4 rounded-xl font-bold text-lg font-mono
+              bg-gradient-to-r from-gray-800 to-gray-900
+              border-2 border-gray-600
+              hover:border-gray-400
+              text-white
+              shadow-[0_0_20px_rgba(128,128,128,0.3)]
+              hover:shadow-[0_0_30px_rgba(128,128,128,0.5)]
+              active:scale-95
+              transition-all duration-200
+            `}
+          >
+            ⬅️ MENU
+          </button>
+          <button
+            onClick={handleReset}
+            className={`
+              px-8 py-4 rounded-xl font-bold text-lg font-mono
+              bg-gradient-to-r from-yellow-600 to-orange-600
+              border-2 border-yellow-400
+              hover:border-yellow-300
+              text-white
+              shadow-[0_0_20px_rgba(255,215,0,0.5)]
+              hover:shadow-[0_0_40px_rgba(255,215,0,0.8)]
+              active:scale-95
+              transition-all duration-200
+              ${styles["neon-text"]}
+            `}
+            style={{ color: "#FFD700" }}
+          >
+            {gameState.status !== "playing" ? "🎮 NEW GAME" : "🔄 RESET"}
+          </button>
+        </div>
+
+        {/* Player Legend */}
+        <div className={`${styles["fade-in"]}`}>
+          <div className={`${styles["arcade-frame"]} ${styles["crt-effect"]}`}>
+            <h3 className="text-sm font-bold mb-4 text-center font-mono text-gray-400">PLAYERS</h3>
+            <div className="flex gap-8 justify-center flex-wrap">
+              <div className="flex items-center gap-3">
                 <div
-                  className={`w-8 h-8 md:w-10 md:h-10 rounded-full ${styles["preview-disc"]}`}
+                  className="w-8 h-8 rounded-full border-2"
                   style={{
-                    backgroundColor: currentColor.primary,
-                    opacity: 0.6,
+                    backgroundColor: playerColors[1].primary,
+                    borderColor: playerColors[1].primary,
+                    boxShadow: `0 0 15px ${playerColors[1].glow}`,
                   }}
                 />
+                <span className="font-bold font-mono" style={{ color: playerColors[1].primary }}>
+                  {gameMode === "ai" ? "YOU" : "PLAYER 1"}
+                </span>
               </div>
-            )}
-
-          {/* Board Grid */}
-          <div className="grid grid-cols-7 gap-2 md:gap-3">
-            {gameState.board.map((row, rowIndex) =>
-              row.map((cell, colIndex) => (
-                <button
-                  key={`${rowIndex}-${colIndex}`}
-                  onClick={() => handleColumnClick(colIndex)}
-                  onMouseEnter={() => setHoveredColumn(colIndex)}
-                  onMouseLeave={() => setHoveredColumn(null)}
-                  disabled={gameState.status !== "playing"}
-                  className={`
-                    aspect-square bg-white/10 rounded-2xl p-1.5 md:p-2
-                    ${
-                      gameState.status === "playing"
-                        ? "hover:bg-white/20 active:scale-95"
-                        : ""
-                    }
-                    transition-all duration-200
-                    ${shakeColumn === colIndex ? styles["shake"] : ""}
-                  `}
-                  aria-label={`Column ${colIndex + 1}, Row ${rowIndex + 1}`}
-                >
-                  <div className={getCellClasses(rowIndex, colIndex, cell)}>
-                    <div
-                      className={`w-full h-full rounded-full ${getCellBackground(
-                        cell
-                      )} shadow-lg`}
-                      style={
-                        cell !== null
-                          ? {
-                              boxShadow: `0 4px 6px -1px ${playerColors[cell].glow}, 0 2px 4px -1px ${playerColors[cell].glow}`,
-                            }
-                          : {}
-                      }
-                    />
-                  </div>
-                </button>
-              ))
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-8 h-8 rounded-full border-2"
+                  style={{
+                    backgroundColor: playerColors[2].primary,
+                    borderColor: playerColors[2].primary,
+                    boxShadow: `0 0 15px ${playerColors[2].glow}`,
+                  }}
+                />
+                <span className="font-bold font-mono" style={{ color: playerColors[2].primary }}>
+                  {gameMode === "ai" ? `AI (${aiDifficulty.toUpperCase()})` : "PLAYER 2"}
+                  {gameMode === "ai" && " 🤖"}
+                </span>
+              </div>
+            </div>
+            {gameMode === "ai" && isAIThinking && (
+              <div className="mt-4 text-center text-sm font-mono text-cyan-400 animate-pulse">🤔 AI COMPUTING...</div>
             )}
           </div>
         </div>
-      </div>
-
-      {/* Game Controls */}
-      <div className="flex gap-4 justify-center flex-wrap">
-        <button
-          onClick={handleBackToMenu}
-          className={`
-            px-6 py-3 rounded-xl font-semibold text-white
-            bg-gradient-to-r from-gray-500 to-gray-600
-            hover:from-gray-600 hover:to-gray-700
-            active:scale-95
-            transition-all duration-200
-            shadow-lg hover:shadow-xl
-            ${styles["button-press"]}
-          `}
-        >
-          ⬅️ Back to Menu
-        </button>
-        <button
-          onClick={handleReset}
-          className={`
-            px-6 py-3 rounded-xl font-semibold text-white
-            bg-gradient-to-r from-purple-500 to-pink-500
-            hover:from-purple-600 hover:to-pink-600
-            active:scale-95
-            transition-all duration-200
-            shadow-lg hover:shadow-xl
-            ${styles["button-press"]}
-          `}
-        >
-          {gameState.status !== "playing" ? "🎮 New Game" : "🔄 Reset Game"}
-        </button>
-      </div>
-
-      {/* Player Legend */}
-      <div className={`mt-8 ${styles["fade-in"]}`}>
-        <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-4 border border-white/10">
-          <h3 className="text-sm font-semibold mb-3 text-gray-600 dark:text-gray-400">
-            Players
-          </h3>
-          <div className="flex gap-6 justify-center">
-            <div className="flex items-center gap-2">
-              <div
-                className="w-6 h-6 rounded-full"
-                style={{ backgroundColor: playerColors[1].primary }}
-              />
-              <span className="text-sm font-medium">Player 1 (You)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div
-                className="w-6 h-6 rounded-full"
-                style={{ backgroundColor: playerColors[2].primary }}
-              />
-              <span className="text-sm font-medium">
-                {gameMode === "ai" ? `AI (${aiDifficulty})` : "Player 2"}
-                {gameMode === "ai" && " 🤖"}
-              </span>
-            </div>
-          </div>
-          {gameMode === "ai" && isAIThinking && (
-            <div className="mt-3 text-center text-sm text-cyan-400">
-              🤔 AI is thinking...
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Game Rules */}
-      <div className={`mt-4 ${styles["fade-in"]}`}>
-        <details className="bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10">
-          <summary className="px-4 py-3 cursor-pointer font-medium text-sm hover:bg-white/5 transition-colors rounded-2xl">
-            📖 How to Play
-          </summary>
-          <div className="px-4 pb-4 pt-2 text-sm text-gray-600 dark:text-gray-400 space-y-2">
-            <p>• Players take turns dropping colored discs into the grid</p>
-            <p>• Discs fall to the lowest available position in the column</p>
-            <p>• First player to get 4 discs in a row wins!</p>
-            <p>• Rows can be horizontal, vertical, or diagonal</p>
-            <p>• If the board fills up with no winner, it&apos;s a draw</p>
-          </div>
-        </details>
       </div>
     </div>
-  );
-};
-
-export default ConnectFour;
+  )
+}

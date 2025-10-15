@@ -1,7 +1,7 @@
 "use client";
 
 import { TabItem, Tabs } from "@worldcoin/mini-apps-ui-kit-react";
-import { Home, StatsUpSquare } from "iconoir-react";
+import { Home } from "iconoir-react";
 import { useRouter, usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 
@@ -19,9 +19,7 @@ export const Navigation = () => {
 
   // Sync tab value with current pathname
   useEffect(() => {
-    if (pathname.includes("/game")) {
-      setValue("game");
-    } else if (pathname.includes("/home")) {
+    if (pathname.includes("/home")) {
       setValue("home");
     }
   }, [pathname]);
@@ -34,9 +32,6 @@ export const Navigation = () => {
       case "home":
         router.push("/home");
         break;
-      case "game":
-        router.push("/game");
-        break;
       default:
         break;
     }
@@ -45,7 +40,6 @@ export const Navigation = () => {
   return (
     <Tabs value={value} onValueChange={handleTabChange}>
       <TabItem value="home" icon={<Home />} label="Home" />
-      <TabItem value="game" icon={<StatsUpSquare />} label="Game" />
     </Tabs>
   );
 };
