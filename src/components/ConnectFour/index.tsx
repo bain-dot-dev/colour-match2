@@ -61,14 +61,18 @@ export const ConnectFour = () => {
     setIsAIThinking(false);
   }, []);
 
-  // AI move logic
+  // AI move logic - triggers when it's AI's turn
   useEffect(() => {
+    // Only trigger if it's AI mode, playing, and player 2's turn
     if (
       gameMode === "ai" &&
       gameState.status === "playing" &&
-      gameState.currentPlayer === 2 &&
-      !isAIThinking
+      gameState.currentPlayer === 2
     ) {
+      // Don't trigger if AI is already processing
+      if (isAIThinking) return;
+
+      console.log("AI's turn - starting to think...");
       setIsAIThinking(true);
 
       // Add delay for more natural feel
@@ -76,23 +80,32 @@ export const ConnectFour = () => {
         aiDifficulty === "easy" ? 500 : aiDifficulty === "medium" ? 800 : 1200;
 
       const timeoutId = setTimeout(() => {
+        console.log("AI making move...");
         const aiCol = getAIMove(gameState.board, 2, aiDifficulty);
-
         const row = findLowestRow(gameState.board, aiCol);
-        const cellKey = `${row}-${aiCol}`;
 
-        setAnimatingCell(cellKey);
+        if (row !== -1) {
+          const cellKey = `${row}-${aiCol}`;
+          setAnimatingCell(cellKey);
 
-        setTimeout(() => {
-          setGameState((prev) => makeMove(prev, aiCol));
-          setAnimatingCell(null);
+          setTimeout(() => {
+            setGameState((prev) => makeMove(prev, aiCol));
+            setAnimatingCell(null);
+            setIsAIThinking(false);
+            console.log("AI move complete");
+          }, 100);
+        } else {
+          console.error("AI couldn't find valid move");
           setIsAIThinking(false);
-        }, 100);
+        }
       }, delay);
 
-      return () => clearTimeout(timeoutId);
+      return () => {
+        console.log("Cleanup AI timeout");
+        clearTimeout(timeoutId);
+      };
     }
-  }, [gameState, gameMode, isAIThinking, aiDifficulty]);
+  }, [gameState.moveCount, gameMode]);
 
   // Handle column click
   const handleColumnClick = useCallback(
@@ -289,7 +302,7 @@ export const ConnectFour = () => {
             {/* Current Player Indicator */}
             <div className="flex items-center gap-3">
               <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                Current Player:
+                Current Turn:
               </span>
               <div className="flex items-center gap-2">
                 <div
@@ -300,7 +313,11 @@ export const ConnectFour = () => {
                   }}
                 />
                 <span className="text-lg font-bold">
-                  Player {gameState.currentPlayer}
+                  {gameMode === "ai" && gameState.currentPlayer === 2
+                    ? "AI 🤖"
+                    : gameMode === "ai" && gameState.currentPlayer === 1
+                    ? "You"
+                    : `Player ${gameState.currentPlayer}`}
                 </span>
               </div>
             </div>
@@ -327,7 +344,11 @@ export const ConnectFour = () => {
                 }}
               >
                 {gameState.status === "won"
-                  ? `🎉 Player ${gameState.winner} Wins! 🎉`
+                  ? gameMode === "ai"
+                    ? gameState.winner === 1
+                      ? "🎉 You Win! 🎉"
+                      : "🤖 AI Wins! 🤖"
+                    : `🎉 Player ${gameState.winner} Wins! 🎉`
                   : "🤝 Draw Game! 🤝"}
               </div>
             </div>
