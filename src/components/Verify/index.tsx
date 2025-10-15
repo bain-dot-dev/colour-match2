@@ -1,7 +1,7 @@
-'use client';
-import { Button, LiveFeedback } from '@worldcoin/mini-apps-ui-kit-react';
-import { MiniKit, VerificationLevel } from '@worldcoin/minikit-js';
-import { useState } from 'react';
+"use client";
+import { Button, LiveFeedback } from "@worldcoin/mini-apps-ui-kit-react";
+import { MiniKit, VerificationLevel } from "@worldcoin/minikit-js";
+import { useState } from "react";
 
 /**
  * This component is an example of how to use World ID in Mini Apps
@@ -11,37 +11,39 @@ import { useState } from 'react';
  */
 export const Verify = () => {
   const [buttonState, setButtonState] = useState<
-    'pending' | 'success' | 'failed' | undefined
+    "pending" | "success" | "failed" | undefined
   >(undefined);
 
   const [whichVerification, setWhichVerification] = useState<VerificationLevel>(
-    VerificationLevel.Device,
+    VerificationLevel.Device
   );
 
   const onClickVerify = async (verificationLevel: VerificationLevel) => {
-    setButtonState('pending');
+    setButtonState("pending");
     setWhichVerification(verificationLevel);
+
+    const action = process.env.NEXT_PUBLIC_ACTION || "verifyaction";
     const result = await MiniKit.commandsAsync.verify({
-      action: 'test-action', // Make sure to create this in the developer portal -> incognito actions
+      action: action, // Uses environment variable NEXT_PUBLIC_ACTION
       verification_level: verificationLevel,
     });
     console.log(result.finalPayload);
     // Verify the proof
-    const response = await fetch('/api/verify-proof', {
-      method: 'POST',
+    const response = await fetch("/api/verify-proof", {
+      method: "POST",
       body: JSON.stringify({
         payload: result.finalPayload,
-        action: 'test-action',
+        action: action,
       }),
     });
 
     const data = await response.json();
     if (data.verifyRes.success) {
-      setButtonState('success');
+      setButtonState("success");
       // Normally you'd do something here since the user is verified
       // Here we'll just do nothing
     } else {
-      setButtonState('failed');
+      setButtonState("failed");
 
       // Reset the button state after 3 seconds
       setTimeout(() => {
@@ -55,9 +57,9 @@ export const Verify = () => {
       <p className="text-lg font-semibold">Verify</p>
       <LiveFeedback
         label={{
-          failed: 'Failed to verify',
-          pending: 'Verifying',
-          success: 'Verified',
+          failed: "Failed to verify",
+          pending: "Verifying",
+          success: "Verified",
         }}
         state={
           whichVerification === VerificationLevel.Device
@@ -68,7 +70,7 @@ export const Verify = () => {
       >
         <Button
           onClick={() => onClickVerify(VerificationLevel.Device)}
-          disabled={buttonState === 'pending'}
+          disabled={buttonState === "pending"}
           size="lg"
           variant="tertiary"
           className="w-full"
@@ -78,9 +80,9 @@ export const Verify = () => {
       </LiveFeedback>
       <LiveFeedback
         label={{
-          failed: 'Failed to verify',
-          pending: 'Verifying',
-          success: 'Verified',
+          failed: "Failed to verify",
+          pending: "Verifying",
+          success: "Verified",
         }}
         state={
           whichVerification === VerificationLevel.Orb ? buttonState : undefined
@@ -89,7 +91,7 @@ export const Verify = () => {
       >
         <Button
           onClick={() => onClickVerify(VerificationLevel.Orb)}
-          disabled={buttonState === 'pending'}
+          disabled={buttonState === "pending"}
           size="lg"
           variant="primary"
           className="w-full"

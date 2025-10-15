@@ -1,8 +1,9 @@
-'use client';
+"use client";
 
-import { TabItem, Tabs } from '@worldcoin/mini-apps-ui-kit-react';
-import { Bank, Home, User } from 'iconoir-react';
-import { useState } from 'react';
+import { TabItem, Tabs } from "@worldcoin/mini-apps-ui-kit-react";
+import { Home, StatsUpSquare } from "iconoir-react";
+import { useRouter, usePathname } from "next/navigation";
+import { useState, useEffect } from "react";
 
 /**
  * This component uses the UI Kit to navigate between pages
@@ -12,14 +13,39 @@ import { useState } from 'react';
  */
 
 export const Navigation = () => {
-  const [value, setValue] = useState('home');
+  const router = useRouter();
+  const pathname = usePathname();
+  const [value, setValue] = useState("home");
+
+  // Sync tab value with current pathname
+  useEffect(() => {
+    if (pathname.includes("/game")) {
+      setValue("game");
+    } else if (pathname.includes("/home")) {
+      setValue("home");
+    }
+  }, [pathname]);
+
+  const handleTabChange = (newValue: string) => {
+    setValue(newValue);
+
+    // Navigate to the appropriate page
+    switch (newValue) {
+      case "home":
+        router.push("/home");
+        break;
+      case "game":
+        router.push("/game");
+        break;
+      default:
+        break;
+    }
+  };
 
   return (
-    <Tabs value={value} onValueChange={setValue}>
+    <Tabs value={value} onValueChange={handleTabChange}>
       <TabItem value="home" icon={<Home />} label="Home" />
-      {/* // TODO: These currently don't link anywhere */}
-      <TabItem value="wallet" icon={<Bank />} label="Wallet" />
-      <TabItem value="profile" icon={<User />} label="Profile" />
+      <TabItem value="game" icon={<StatsUpSquare />} label="Game" />
     </Tabs>
   );
 };
