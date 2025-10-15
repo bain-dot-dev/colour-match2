@@ -1,150 +1,173 @@
-"use client"
+"use client";
 
-import { useState, useCallback, useMemo, useEffect } from "react"
-import { createInitialState, makeMove, isValidMove, findLowestRow } from "./gameLogic"
-import { getAIMove, getDifficultyDescription } from "./aiLogic"
-import type { GameState, GameMode, AIDifficulty } from "./types"
-import styles from "./ConnectFour.module.css"
+import { useState, useCallback, useMemo, useEffect } from "react";
+import {
+  createInitialState,
+  makeMove,
+  isValidMove,
+  findLowestRow,
+} from "./gameLogic";
+import { getAIMove, getDifficultyDescription } from "./aiLogic";
+import type { GameState, GameMode, AIDifficulty } from "./types";
+import { Starfield } from "./Starfield";
+import { Confetti } from "./Confetti";
+import styles from "./ConnectFour.module.css";
 
-// Retro arcade neon colors
+// Retro arcade neon colors using CSS variables
 const playerColors = {
   1: {
-    primary: "#FF00FF", // Magenta
-    secondary: "#FF1493",
-    glow: "rgba(255, 0, 255, 0.6)",
+    primary: "var(--player-1-red, #FF1744)",
+    neon: "var(--player-1-neon-red, #FF0055)",
+    glow: "var(--player-1-glow, #FF4081)",
+    shadow: "var(--player-1-shadow, #C51162)",
+    glowRgba: "rgba(255, 23, 68, 0.6)",
     name: "PLAYER 1",
   },
   2: {
-    primary: "#00FFFF", // Cyan
-    secondary: "#00CED1",
-    glow: "rgba(0, 255, 255, 0.6)",
+    primary: "var(--player-2-yellow, #FFD600)",
+    neon: "var(--player-2-neon-yellow, #FFEA00)",
+    glow: "var(--player-2-glow, #FFFF00)",
+    shadow: "var(--player-2-shadow, #FFA000)",
+    glowRgba: "rgba(255, 214, 0, 0.6)",
     name: "PLAYER 2",
   },
-} as const
+} as const;
 
 export const ConnectFour = () => {
-  const [gameState, setGameState] = useState<GameState>(createInitialState())
-  const [hoveredColumn, setHoveredColumn] = useState<number | null>(null)
-  const [animatingCell, setAnimatingCell] = useState<string | null>(null)
-  const [shakeColumn, setShakeColumn] = useState<number | null>(null)
-  const [gameMode, setGameMode] = useState<GameMode | null>(null)
-  const [aiDifficulty, setAiDifficulty] = useState<AIDifficulty>("medium")
-  const [isAIThinking, setIsAIThinking] = useState(false)
+  const [gameState, setGameState] = useState<GameState>(createInitialState());
+  const [hoveredColumn, setHoveredColumn] = useState<number | null>(null);
+  const [animatingCell, setAnimatingCell] = useState<string | null>(null);
+  const [shakeColumn, setShakeColumn] = useState<number | null>(null);
+  const [gameMode, setGameMode] = useState<GameMode | null>(null);
+  const [aiDifficulty, setAiDifficulty] = useState<AIDifficulty>("medium");
+  const [isAIThinking, setIsAIThinking] = useState(false);
 
   const handleReset = useCallback(() => {
-    setGameState(createInitialState())
-    setHoveredColumn(null)
-    setAnimatingCell(null)
-    setShakeColumn(null)
-    setIsAIThinking(false)
-  }, [])
+    setGameState(createInitialState());
+    setHoveredColumn(null);
+    setAnimatingCell(null);
+    setShakeColumn(null);
+    setIsAIThinking(false);
+  }, []);
 
   const handleStartGame = useCallback((mode: GameMode) => {
-    setGameMode(mode)
-    setGameState(createInitialState())
-  }, [])
+    setGameMode(mode);
+    setGameState(createInitialState());
+  }, []);
 
   const handleBackToMenu = useCallback(() => {
-    setGameMode(null)
-    setGameState(createInitialState())
-    setIsAIThinking(false)
-  }, [])
+    setGameMode(null);
+    setGameState(createInitialState());
+    setIsAIThinking(false);
+  }, []);
 
   // AI move logic
   useEffect(() => {
-    if (gameMode === "ai" && gameState.status === "playing" && gameState.currentPlayer === 2 && !isAIThinking) {
-      setIsAIThinking(true)
-      const delay = aiDifficulty === "easy" ? 500 : aiDifficulty === "medium" ? 800 : 1200
+    if (
+      gameMode === "ai" &&
+      gameState.status === "playing" &&
+      gameState.currentPlayer === 2 &&
+      !isAIThinking
+    ) {
+      setIsAIThinking(true);
+      const delay =
+        aiDifficulty === "easy" ? 500 : aiDifficulty === "medium" ? 800 : 1200;
 
       const timeoutId = setTimeout(() => {
-        const aiCol = getAIMove(gameState.board, 2, aiDifficulty)
-        const row = findLowestRow(gameState.board, aiCol)
+        const aiCol = getAIMove(gameState.board, 2, aiDifficulty);
+        const row = findLowestRow(gameState.board, aiCol);
 
         if (row !== -1) {
-          const cellKey = `${row}-${aiCol}`
-          setAnimatingCell(cellKey)
+          const cellKey = `${row}-${aiCol}`;
+          setAnimatingCell(cellKey);
 
           setTimeout(() => {
-            setGameState((prev) => makeMove(prev, aiCol))
-            setAnimatingCell(null)
-            setIsAIThinking(false)
-          }, 600)
+            setGameState((prev) => makeMove(prev, aiCol));
+            setAnimatingCell(null);
+            setIsAIThinking(false);
+          }, 600);
         } else {
-          setIsAIThinking(false)
+          setIsAIThinking(false);
         }
-      }, delay)
+      }, delay);
 
-      return () => clearTimeout(timeoutId)
+      return () => clearTimeout(timeoutId);
     }
-  }, [gameState.moveCount, gameMode, aiDifficulty, isAIThinking, gameState.status, gameState.currentPlayer])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    gameState.board,
+    gameState.moveCount,
+    gameMode,
+    aiDifficulty,
+    gameState.status,
+    gameState.currentPlayer,
+  ]);
 
   const handleColumnClick = useCallback(
     (col: number) => {
-      if (gameState.status !== "playing" || isAIThinking) return
-      if (gameMode === "ai" && gameState.currentPlayer === 2) return
+      if (gameState.status !== "playing" || isAIThinking) return;
+      if (gameMode === "ai" && gameState.currentPlayer === 2) return;
 
       if (!isValidMove(gameState.board, col)) {
-        setShakeColumn(col)
-        setTimeout(() => setShakeColumn(null), 300)
-        return
+        setShakeColumn(col);
+        setTimeout(() => setShakeColumn(null), 300);
+        return;
       }
 
-      const row = findLowestRow(gameState.board, col)
-      const cellKey = `${row}-${col}`
-      setAnimatingCell(cellKey)
+      const row = findLowestRow(gameState.board, col);
+      const cellKey = `${row}-${col}`;
+      setAnimatingCell(cellKey);
 
       setTimeout(() => {
-        setGameState((prev) => makeMove(prev, col))
-        setAnimatingCell(null)
-      }, 600)
+        setGameState((prev) => makeMove(prev, col));
+        setAnimatingCell(null);
+      }, 600);
     },
-    [gameState, isAIThinking, gameMode],
-  )
+    [gameState, isAIThinking, gameMode]
+  );
 
   const getCellClasses = useCallback(
     (row: number, col: number, value: number | null) => {
-      const cellKey = `${row}-${col}`
-      const isWinning = gameState.winningCells.some(([r, c]) => r === row && c === col)
-      const isAnimating = animatingCell === cellKey
+      const cellKey = `${row}-${col}`;
+      const isWinning = gameState.winningCells.some(
+        ([r, c]) => r === row && c === col
+      );
+      const isAnimating = animatingCell === cellKey;
 
-      let classes = "relative w-full aspect-square rounded-full transition-all duration-300 "
+      let classes =
+        "relative w-full aspect-square rounded-full transition-all duration-300 ";
 
       if (value !== null) {
-        classes += isAnimating ? styles["disc-drop"] : ""
-        classes += isWinning ? ` ${styles["win-pulse"]}` : ""
+        classes += isAnimating ? styles["disc-drop"] : "";
+        classes += isWinning ? ` ${styles["win-pulse"]}` : "";
       }
 
-      return classes
+      return classes;
     },
-    [gameState.winningCells, animatingCell],
-  )
+    [gameState.winningCells, animatingCell]
+  );
 
   const getCellBackground = useCallback((value: number | null) => {
     if (value === null) {
-      return "bg-black/40 border-2 border-cyan-500/20"
+      return "bg-black/40 border-2 border-cyan-500/20";
     }
-    return value === 1 ? "bg-[#FF00FF]" : "bg-[#00FFFF]"
-  }, [])
+    return "";
+  }, []);
 
-  const currentColor = useMemo(() => playerColors[gameState.currentPlayer], [gameState.currentPlayer])
+  const currentColor = useMemo(
+    () => playerColors[gameState.currentPlayer],
+    [gameState.currentPlayer]
+  );
 
   // Mode Selection Screen
   if (gameMode === null) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-[#0a0a1a] via-[#1a0a2e] to-[#0a0a1a] flex items-center justify-center p-4">
-        <div className="w-full max-w-2xl">
+      <div className="min-h-screen relative flex items-center justify-center p-4">
+        <Starfield />
+        <div className="w-full max-w-2xl relative z-10">
           {/* Retro Header */}
           <div className={`text-center mb-12 ${styles["slide-down"]}`}>
-            <h1
-              className={`text-6xl md:text-7xl font-bold mb-4 ${styles["neon-text"]} font-mono tracking-wider`}
-              style={{
-                color: "#FFD700",
-                textShadow:
-                  "0 0 10px #FFD700, 0 0 20px #FFD700, 0 0 30px #FFD700, 0 0 40px #FF00FF, 0 0 70px #FF00FF, 0 0 80px #FF00FF, 0 0 100px #FF00FF",
-              }}
-            >
-              CONNECT 4
-            </h1>
+            <h1 className="arcade-title">CONNECT 4</h1>
             <div className="flex items-center justify-center gap-2 text-cyan-400 text-sm md:text-base font-mono">
               <span className="animate-pulse">▶</span>
               <p>ARCADE EDITION</p>
@@ -172,11 +195,16 @@ export const ConnectFour = () => {
               <div className="relative z-10">
                 <div className="flex items-center justify-center gap-4 mb-2">
                   <span className="text-4xl">👥</span>
-                  <span className={styles["neon-text"]} style={{ color: "#FF00FF" }}>
+                  <span
+                    className={styles["neon-text"]}
+                    style={{ color: "#FF00FF" }}
+                  >
                     PLAYER VS PLAYER
                   </span>
                 </div>
-                <p className="text-sm text-purple-300 font-normal">Challenge a friend locally</p>
+                <p className="text-sm text-purple-300 font-normal">
+                  Challenge a friend locally
+                </p>
               </div>
             </button>
 
@@ -198,11 +226,16 @@ export const ConnectFour = () => {
               <div className="relative z-10">
                 <div className="flex items-center justify-center gap-4 mb-2">
                   <span className="text-4xl">🤖</span>
-                  <span className={styles["neon-text"]} style={{ color: "#00FFFF" }}>
+                  <span
+                    className={styles["neon-text"]}
+                    style={{ color: "#00FFFF" }}
+                  >
                     PLAYER VS AI
                   </span>
                 </div>
-                <p className="text-sm text-cyan-300 font-normal">Battle the computer</p>
+                <p className="text-sm text-cyan-300 font-normal">
+                  Battle the computer
+                </p>
               </div>
             </button>
           </div>
@@ -238,7 +271,12 @@ export const ConnectFour = () => {
                       <div
                         className="font-bold text-lg uppercase mb-1"
                         style={{
-                          color: diff === "easy" ? "#00FF00" : diff === "medium" ? "#FFD700" : "#FF0000",
+                          color:
+                            diff === "easy"
+                              ? "#00FF00"
+                              : diff === "medium"
+                              ? "#FFD700"
+                              : "#FF0000",
                         }}
                       >
                         {diff === "easy" && "🟢 "}
@@ -246,9 +284,13 @@ export const ConnectFour = () => {
                         {diff === "hard" && "🔴 "}
                         {diff}
                       </div>
-                      <div className="text-sm text-gray-400">{getDifficultyDescription(diff)}</div>
+                      <div className="text-sm text-gray-400">
+                        {getDifficultyDescription(diff)}
+                      </div>
                     </div>
-                    {aiDifficulty === diff && <span className="text-2xl animate-pulse">✓</span>}
+                    {aiDifficulty === diff && (
+                      <span className="text-2xl animate-pulse">✓</span>
+                    )}
                   </div>
                 </button>
               ))}
@@ -256,24 +298,23 @@ export const ConnectFour = () => {
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   // Game Screen
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#0a0a1a] via-[#1a0a2e] to-[#0a0a1a] flex items-center justify-center p-4">
-      <div className="w-full max-w-3xl">
+    <div className="min-h-screen relative flex items-center justify-center p-4">
+      <Starfield />
+      <Confetti
+        active={gameState.status === "won"}
+        playerColor={
+          gameState.winner ? playerColors[gameState.winner].primary : undefined
+        }
+      />
+      <div className="w-full max-w-3xl relative z-10">
         {/* Game Header */}
         <div className={`text-center mb-6 ${styles["slide-down"]}`}>
-          <h1
-            className={`text-5xl md:text-6xl font-bold mb-2 ${styles["neon-text"]} font-mono`}
-            style={{
-              color: "#FFD700",
-              textShadow: "0 0 10px #FFD700, 0 0 20px #FFD700, 0 0 30px #FFD700, 0 0 40px #FF00FF",
-            }}
-          >
-            CONNECT 4
-          </h1>
+          <h1 className="arcade-title text-5xl md:text-6xl mb-2">CONNECT 4</h1>
           <p className="text-cyan-400 text-sm font-mono flex items-center justify-center gap-2">
             <span className="animate-pulse">▶</span>
             DROP DISCS TO GET 4 IN A ROW
@@ -287,7 +328,9 @@ export const ConnectFour = () => {
             <div className="flex items-center justify-between flex-wrap gap-4">
               {/* Current Player */}
               <div className="flex items-center gap-3">
-                <span className="text-sm font-mono text-gray-400">CURRENT:</span>
+                <span className="text-sm font-mono text-gray-400">
+                  CURRENT:
+                </span>
                 <div className="flex items-center gap-2">
                   <div
                     className={`w-10 h-10 rounded-full ${styles["glow-effect"]} border-2`}
@@ -297,12 +340,15 @@ export const ConnectFour = () => {
                       boxShadow: `0 0 20px ${currentColor.glow}, 0 0 40px ${currentColor.glow}`,
                     }}
                   />
-                  <span className="text-xl font-bold font-mono" style={{ color: currentColor.primary }}>
+                  <span
+                    className="text-xl font-bold font-mono"
+                    style={{ color: currentColor.primary }}
+                  >
                     {gameMode === "ai" && gameState.currentPlayer === 2
                       ? "AI 🤖"
                       : gameMode === "ai" && gameState.currentPlayer === 1
-                        ? "YOU"
-                        : currentColor.name}
+                      ? "YOU"
+                      : currentColor.name}
                   </span>
                 </div>
               </div>
@@ -332,10 +378,16 @@ export const ConnectFour = () => {
                       gameState.status === "won"
                         ? `linear-gradient(135deg, ${
                             playerColors[gameState.winner!].primary
-                          }20, ${playerColors[gameState.winner!].secondary}20)`
+                          }20, ${playerColors[gameState.winner!].shadow}20)`
                         : "linear-gradient(135deg, #FFD70020, #FFA50020)",
-                    borderColor: gameState.status === "won" ? playerColors[gameState.winner!].primary : "#FFD700",
-                    color: gameState.status === "won" ? playerColors[gameState.winner!].primary : "#FFD700",
+                    borderColor:
+                      gameState.status === "won"
+                        ? playerColors[gameState.winner!].primary
+                        : "#FFD700",
+                    color:
+                      gameState.status === "won"
+                        ? playerColors[gameState.winner!].primary
+                        : "#FFD700",
                     boxShadow:
                       gameState.status === "won"
                         ? `0 0 30px ${playerColors[gameState.winner!].glow}`
@@ -357,7 +409,9 @@ export const ConnectFour = () => {
 
         {/* Game Board */}
         <div className={`mb-6 ${styles["board-entrance"]}`}>
-          <div className={`${styles["arcade-frame"]} ${styles["crt-effect"]} relative`}>
+          <div
+            className={`${styles["arcade-frame"]} ${styles["crt-effect"]} relative`}
+          >
             {/* Column Preview */}
             {hoveredColumn !== null &&
               gameState.status === "playing" &&
@@ -368,20 +422,23 @@ export const ConnectFour = () => {
                     {Array.from({ length: 7 }).map((_, colIndex) => (
                       <div
                         key={colIndex}
-                        className="aspect-square flex items-center justify-center"
+                        className="aspect-square bg-transparent rounded-xl p-2"
                         style={{
-                          visibility: colIndex === hoveredColumn ? "visible" : "hidden",
+                          visibility:
+                            colIndex === hoveredColumn ? "visible" : "hidden",
                         }}
                       >
-                        <div
-                          className={`w-10 h-10 md:w-12 md:h-12 rounded-full ${styles["preview-disc"]} border-2`}
-                          style={{
-                            backgroundColor: currentColor.primary,
-                            borderColor: currentColor.primary,
-                            opacity: 0.7,
-                            boxShadow: `0 0 20px ${currentColor.glow}`,
-                          }}
-                        />
+                        <div className="w-full h-full rounded-full flex items-center justify-center p-2">
+                          <div
+                            className={`w-full h-full rounded-full ${styles["preview-disc"]} border-2`}
+                            style={{
+                              background: `radial-gradient(circle at 30% 30%, ${currentColor.glow}, ${currentColor.primary} 40%, ${currentColor.shadow})`,
+                              borderColor: currentColor.primary,
+                              opacity: 0.7,
+                              boxShadow: `0 0 20px ${currentColor.glowRgba}`,
+                            }}
+                          />
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -412,18 +469,28 @@ export const ConnectFour = () => {
                   >
                     <div className={getCellClasses(rowIndex, colIndex, cell)}>
                       <div
-                        className={`w-full h-full rounded-full ${getCellBackground(cell)}`}
+                        className={`w-full h-full rounded-full ${getCellBackground(
+                          cell
+                        )}`}
                         style={
                           cell !== null
                             ? {
-                                boxShadow: `0 0 15px ${playerColors[cell].glow}, 0 0 30px ${playerColors[cell].glow}, inset 0 0 10px rgba(255,255,255,0.3)`,
+                                background: `radial-gradient(circle at 30% 30%, ${playerColors[cell].glow}, ${playerColors[cell].primary} 40%, ${playerColors[cell].shadow})`,
+                                boxShadow: `
+                                  0 0 20px ${playerColors[cell].glowRgba},
+                                  0 0 40px ${playerColors[cell].glowRgba},
+                                  0 4px 8px rgba(0, 0, 0, 0.5),
+                                  inset 0 -4px 8px rgba(0, 0, 0, 0.3),
+                                  inset 0 4px 12px rgba(255, 255, 255, 0.3)
+                                `,
+                                border: "2px solid rgba(255, 255, 255, 0.3)",
                               }
                             : {}
                         }
                       />
                     </div>
                   </button>
-                )),
+                ))
               )}
             </div>
           </div>
@@ -470,7 +537,9 @@ export const ConnectFour = () => {
         {/* Player Legend */}
         <div className={`${styles["fade-in"]}`}>
           <div className={`${styles["arcade-frame"]} ${styles["crt-effect"]}`}>
-            <h3 className="text-sm font-bold mb-4 text-center font-mono text-gray-400">PLAYERS</h3>
+            <h3 className="text-sm font-bold mb-4 text-center font-mono text-gray-400">
+              PLAYERS
+            </h3>
             <div className="flex gap-8 justify-center flex-wrap">
               <div className="flex items-center gap-3">
                 <div
@@ -481,7 +550,10 @@ export const ConnectFour = () => {
                     boxShadow: `0 0 15px ${playerColors[1].glow}`,
                   }}
                 />
-                <span className="font-bold font-mono" style={{ color: playerColors[1].primary }}>
+                <span
+                  className="font-bold font-mono"
+                  style={{ color: playerColors[1].primary }}
+                >
                   {gameMode === "ai" ? "YOU" : "PLAYER 1"}
                 </span>
               </div>
@@ -494,18 +566,25 @@ export const ConnectFour = () => {
                     boxShadow: `0 0 15px ${playerColors[2].glow}`,
                   }}
                 />
-                <span className="font-bold font-mono" style={{ color: playerColors[2].primary }}>
-                  {gameMode === "ai" ? `AI (${aiDifficulty.toUpperCase()})` : "PLAYER 2"}
+                <span
+                  className="font-bold font-mono"
+                  style={{ color: playerColors[2].primary }}
+                >
+                  {gameMode === "ai"
+                    ? `AI (${aiDifficulty.toUpperCase()})`
+                    : "PLAYER 2"}
                   {gameMode === "ai" && " 🤖"}
                 </span>
               </div>
             </div>
             {gameMode === "ai" && isAIThinking && (
-              <div className="mt-4 text-center text-sm font-mono text-cyan-400 animate-pulse">🤔 AI COMPUTING...</div>
+              <div className="mt-4 text-center text-sm font-mono text-cyan-400 animate-pulse">
+                🤔 AI COMPUTING...
+              </div>
             )}
           </div>
         </div>
       </div>
     </div>
-  )
-}
+  );
+};

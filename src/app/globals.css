@@ -1,8 +1,67 @@
 @import "tailwindcss";
 
+/* Import Retro Arcade Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+
 @custom-variant dark (&:is(.dark *));
 
 :root {
+  /* ===== RETRO ARCADE COLOR PALETTE ===== */
+
+  /* Player Colors - Vibrant Neon */
+  --player-1-neon-red: #FF0055;
+  --player-1-red: #FF1744;
+  --player-1-glow: #FF4081;
+  --player-1-shadow: #C51162;
+
+  --player-2-neon-yellow: #FFEA00;
+  --player-2-yellow: #FFD600;
+  --player-2-glow: #FFFF00;
+  --player-2-shadow: #FFA000;
+
+  /* Background & Base - Deep Space */
+  --arcade-black: #0A0A0F;
+  --deep-purple: #1A0F2E;
+  --dark-blue: #0D1B2A;
+  --space-black: #050505;
+
+  /* Neon Accents - Classic Arcade */
+  --neon-blue: #00F0FF;
+  --neon-cyan: #00FFFF;
+  --neon-pink: #FF006E;
+  --neon-magenta: #FF00FF;
+  --neon-green: #39FF14;
+  --neon-orange: #FF9500;
+  --neon-purple: #9D00FF;
+
+  /* Grid & Board - Arcade Cabinet */
+  --arcade-cabinet-blue: #1B3A6B;
+  --board-dark: #0F2847;
+  --board-metal: #2C3E50;
+  --grid-neon: #00D9FF;
+  --hole-black: #000000;
+  --hole-inner-glow: rgba(0, 217, 255, 0.3);
+
+  /* UI Elements - Buttons */
+  --button-arcade-red: #E91E63;
+  --button-arcade-blue: #2196F3;
+  --button-arcade-green: #4CAF50;
+  --button-hover-glow: rgba(255, 255, 255, 0.4);
+
+  /* Text - Neon Glow */
+  --text-white-neon: #FFFFFF;
+  --text-yellow-glow: #FFE600;
+  --text-cyan: #00FFFF;
+  --text-shadow: rgba(0, 0, 0, 0.8);
+
+  /* Font Families */
+  --font-pixel: 'Press Start 2P', cursive;
+  --font-digital: 'Orbitron', sans-serif;
+  --font-terminal: 'Share Tech Mono', monospace;
+
+  /* ===== ORIGINAL THEME VARIABLES (for compatibility) ===== */
   /* Added retro arcade theme colors */
   --background: oklch(0.05 0.02 270);
   --foreground: oklch(0.985 0 0);
@@ -121,5 +180,204 @@
   }
   body {
     @apply bg-background text-foreground;
+    position: relative;
+    overflow-x: hidden;
   }
+}
+
+/* ===== ARCADE GLOBAL STYLES ===== */
+
+/* Starfield Background */
+.starfield {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(180deg,
+    var(--arcade-black) 0%,
+    var(--deep-purple) 50%,
+    var(--dark-blue) 100%
+  );
+  overflow: hidden;
+  z-index: -1;
+}
+
+.star {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  background: white;
+  border-radius: 50%;
+  box-shadow: 0 0 3px white;
+  animation: twinkle 3s ease-in-out infinite;
+}
+
+/* Typography Utility Classes */
+.arcade-title {
+  font-family: var(--font-pixel);
+  font-size: clamp(32px, 8vw, 72px);
+  color: var(--neon-cyan);
+  text-shadow:
+    0 0 10px var(--neon-cyan),
+    0 0 20px var(--neon-cyan),
+    0 0 30px var(--neon-cyan),
+    0 0 40px var(--neon-blue),
+    0 0 70px var(--neon-blue),
+    0 0 80px var(--neon-blue);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  animation: flicker 3s infinite alternate;
+}
+
+.arcade-score {
+  font-family: var(--font-digital);
+  font-size: clamp(24px, 5vw, 48px);
+  font-weight: 700;
+  color: var(--text-yellow-glow);
+  text-shadow: 0 0 20px var(--neon-yellow);
+  letter-spacing: 0.05em;
+}
+
+.arcade-button-text {
+  font-family: var(--font-pixel);
+  font-size: clamp(12px, 2vw, 16px);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+
+.arcade-body {
+  font-family: var(--font-terminal);
+  font-size: clamp(14px, 2vw, 18px);
+  color: var(--text-cyan);
+  line-height: 1.6;
+  letter-spacing: 0.02em;
+}
+
+/* ===== ENHANCED ANIMATIONS ===== */
+
+@keyframes twinkle {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
+@keyframes flicker {
+  0%, 100% { opacity: 1; }
+  41.99% { opacity: 1; }
+  42% { opacity: 0.8; }
+  43% { opacity: 1; }
+  45.99% { opacity: 1; }
+  46% { opacity: 0.6; }
+  46.5% { opacity: 1; }
+}
+
+@keyframes rainbow {
+  0% { filter: hue-rotate(0deg); }
+  100% { filter: hue-rotate(360deg); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-20px); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(10px); }
+}
+
+@keyframes screenShake {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  10% { transform: translate(-5px, -5px) rotate(-1deg); }
+  20% { transform: translate(5px, 5px) rotate(1deg); }
+  30% { transform: translate(-5px, 5px) rotate(-1deg); }
+  40% { transform: translate(5px, -5px) rotate(1deg); }
+  50% { transform: translate(-5px, -5px) rotate(-1deg); }
+  60% { transform: translate(5px, 5px) rotate(1deg); }
+  70% { transform: translate(-5px, 5px) rotate(-1deg); }
+  80% { transform: translate(5px, -5px) rotate(1deg); }
+  90% { transform: translate(-5px, -5px) rotate(-1deg); }
+}
+
+@keyframes confettiFall {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100vh) rotate(720deg);
+    opacity: 0;
+  }
+}
+
+@keyframes sparkleAnim {
+  0% {
+    transform: scale(0);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.5);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0);
+    opacity: 0;
+  }
+}
+
+@keyframes glitch {
+  0% {
+    text-shadow:
+      2px 0 0 var(--neon-pink),
+      -2px 0 0 var(--neon-cyan);
+  }
+  25% {
+    text-shadow:
+      -2px 0 0 var(--neon-pink),
+      2px 0 0 var(--neon-cyan);
+  }
+  50% {
+    text-shadow:
+      2px 0 0 var(--neon-cyan),
+      -2px 0 0 var(--neon-green);
+  }
+  75% {
+    text-shadow:
+      -2px 0 0 var(--neon-green),
+      2px 0 0 var(--neon-pink);
+  }
+  100% {
+    text-shadow:
+      2px 0 0 var(--neon-pink),
+      -2px 0 0 var(--neon-cyan);
+  }
+}
+
+/* Utility Classes */
+.confetti-piece {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: var(--neon-cyan);
+  animation: confettiFall 3s ease-in-out forwards;
+}
+
+.sparkle {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: white;
+  border-radius: 50%;
+  box-shadow: 0 0 10px white;
+  animation: sparkleAnim 1s ease-out forwards;
 }
