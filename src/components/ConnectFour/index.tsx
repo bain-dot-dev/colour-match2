@@ -412,39 +412,6 @@ export const ConnectFour = () => {
           <div
             className={`${styles["arcade-frame"]} ${styles["crt-effect"]} relative`}
           >
-            {/* Column Preview */}
-            {hoveredColumn !== null &&
-              gameState.status === "playing" &&
-              isValidMove(gameState.board, hoveredColumn) &&
-              !isAIThinking && (
-                <div className="absolute top-0 left-0 right-0 pointer-events-none z-20 p-2">
-                  <div className="grid grid-cols-7 gap-3 md:gap-4">
-                    {Array.from({ length: 7 }).map((_, colIndex) => (
-                      <div
-                        key={colIndex}
-                        className="aspect-square bg-transparent rounded-xl p-2"
-                        style={{
-                          visibility:
-                            colIndex === hoveredColumn ? "visible" : "hidden",
-                        }}
-                      >
-                        <div className="w-full h-full rounded-full flex items-center justify-center p-2">
-                          <div
-                            className={`w-full h-full rounded-full ${styles["preview-disc"]} border-2`}
-                            style={{
-                              background: `radial-gradient(circle at 30% 30%, ${currentColor.glow}, ${currentColor.primary} 40%, ${currentColor.shadow})`,
-                              borderColor: currentColor.primary,
-                              opacity: 0.7,
-                              boxShadow: `0 0 20px ${currentColor.glowRgba}`,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
             {/* Board Grid */}
             <div className="grid grid-cols-7 gap-3 md:gap-4 p-2">
               {gameState.board.map((row, rowIndex) =>
@@ -456,7 +423,7 @@ export const ConnectFour = () => {
                     onMouseLeave={() => setHoveredColumn(null)}
                     disabled={gameState.status !== "playing" || isAIThinking}
                     className={`
-                      aspect-square bg-black/60 rounded-xl p-2
+                      relative aspect-square bg-black/60 rounded-xl p-2
                       border-2 border-cyan-500/30
                       ${
                         gameState.status === "playing" && !isAIThinking
@@ -467,6 +434,27 @@ export const ConnectFour = () => {
                       ${shakeColumn === colIndex ? styles["shake"] : ""}
                     `}
                   >
+                    {/* Preview disc on top row */}
+                    {rowIndex === 0 &&
+                      hoveredColumn === colIndex &&
+                      gameState.status === "playing" &&
+                      isValidMove(gameState.board, colIndex) &&
+                      !isAIThinking && (
+                        <div className="absolute inset-0 p-2 pointer-events-none z-10">
+                          <div className="relative w-full aspect-square rounded-full transition-all duration-300">
+                            <div
+                              className={`w-full h-full rounded-full ${styles["preview-disc"]}`}
+                              style={{
+                                background: `radial-gradient(circle at 30% 30%, ${currentColor.glow}, ${currentColor.primary} 40%, ${currentColor.shadow})`,
+                                border: "2px solid rgba(255, 255, 255, 0.3)",
+                                opacity: 0.7,
+                                boxShadow: `0 0 20px ${currentColor.glowRgba}`,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      )}
+
                     <div className={getCellClasses(rowIndex, colIndex, cell)}>
                       <div
                         className={`w-full h-full rounded-full ${getCellBackground(
