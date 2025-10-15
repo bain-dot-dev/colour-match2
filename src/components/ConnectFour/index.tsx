@@ -5,14 +5,15 @@
  * Main game component with UI and interaction logic
  */
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import {
   createInitialState,
   makeMove,
   isValidMove,
   findLowestRow,
 } from "./gameLogic";
-import type { GameState } from "./types";
+import { getAIMove, getDifficultyDescription } from "./aiLogic";
+import type { GameState, GameMode, AIDifficulty } from "./types";
 import styles from "./ConnectFour.module.css";
 
 // Player colors - rich color palette (defined outside component to prevent recreation)
@@ -34,6 +35,9 @@ export const ConnectFour = () => {
   const [hoveredColumn, setHoveredColumn] = useState<number | null>(null);
   const [animatingCell, setAnimatingCell] = useState<string | null>(null);
   const [shakeColumn, setShakeColumn] = useState<number | null>(null);
+  const [gameMode, setGameMode] = useState<GameMode | null>(null);
+  const [aiDifficulty, setAiDifficulty] = useState<AIDifficulty>("medium");
+  const [isAIThinking, setIsAIThinking] = useState(false);
 
   // Reset game
   const handleReset = useCallback(() => {
@@ -41,12 +45,62 @@ export const ConnectFour = () => {
     setHoveredColumn(null);
     setAnimatingCell(null);
     setShakeColumn(null);
+    setIsAIThinking(false);
   }, []);
+
+  // Start new game with mode selection
+  const handleStartGame = useCallback((mode: GameMode) => {
+    setGameMode(mode);
+    setGameState(createInitialState());
+  }, []);
+
+  // Go back to mode selection
+  const handleBackToMenu = useCallback(() => {
+    setGameMode(null);
+    setGameState(createInitialState());
+    setIsAIThinking(false);
+  }, []);
+
+  // AI move logic
+  useEffect(() => {
+    if (
+      gameMode === "ai" &&
+      gameState.status === "playing" &&
+      gameState.currentPlayer === 2 &&
+      !isAIThinking
+    ) {
+      setIsAIThinking(true);
+
+      // Add delay for more natural feel
+      const delay =
+        aiDifficulty === "easy" ? 500 : aiDifficulty === "medium" ? 800 : 1200;
+
+      const timeoutId = setTimeout(() => {
+        const aiCol = getAIMove(gameState.board, 2, aiDifficulty);
+
+        const row = findLowestRow(gameState.board, aiCol);
+        const cellKey = `${row}-${aiCol}`;
+
+        setAnimatingCell(cellKey);
+
+        setTimeout(() => {
+          setGameState((prev) => makeMove(prev, aiCol));
+          setAnimatingCell(null);
+          setIsAIThinking(false);
+        }, 100);
+      }, delay);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [gameState, gameMode, isAIThinking, aiDifficulty]);
 
   // Handle column click
   const handleColumnClick = useCallback(
     (col: number) => {
-      if (gameState.status !== "playing") return;
+      if (gameState.status !== "playing" || isAIThinking) return;
+
+      // In AI mode, only allow player 1 to click
+      if (gameMode === "ai" && gameState.currentPlayer === 2) return;
 
       if (!isValidMove(gameState.board, col)) {
         // Shake animation for invalid move
@@ -67,7 +121,7 @@ export const ConnectFour = () => {
         setAnimatingCell(null);
       }, 100);
     },
-    [gameState]
+    [gameState, isAIThinking, gameMode]
   );
 
   // Get cell classes for styling
@@ -105,6 +159,110 @@ export const ConnectFour = () => {
     () => playerColors[gameState.currentPlayer],
     [gameState.currentPlayer]
   );
+
+  // Mode Selection Screen
+  if (gameMode === null) {
+    return (
+      <div className="w-full max-w-2xl mx-auto px-4 py-6">
+        {/* Header */}
+        <div className={`text-center mb-8 ${styles["slide-down"]}`}>
+          <h1
+            className="text-4xl md:text-5xl font-bold mb-2 bg-clip-text text-transparent"
+            style={{
+              backgroundImage:
+                "linear-gradient(135deg, #FF6B9D 0%, #4ECDC4 100%)",
+            }}
+          >
+            Connect Four
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400 text-sm md:text-base">
+            Choose your game mode
+          </p>
+        </div>
+
+        {/* Mode Selection */}
+        <div className="space-y-4">
+          {/* Player vs Player */}
+          <button
+            onClick={() => handleStartGame("pvp")}
+            className={`
+              w-full p-6 rounded-2xl
+              bg-gradient-to-br from-purple-500 to-pink-500
+              hover:from-purple-600 hover:to-pink-600
+              text-white font-semibold text-lg
+              shadow-lg hover:shadow-xl
+              transition-all duration-200
+              active:scale-95
+              ${styles["button-press"]}
+            `}
+          >
+            <div className="flex items-center justify-center gap-3 mb-2">
+              <span className="text-2xl">👥</span>
+              <span>Player vs Player</span>
+            </div>
+            <p className="text-sm opacity-90">Play against a friend locally</p>
+          </button>
+
+          {/* Player vs AI */}
+          <button
+            onClick={() => handleStartGame("ai")}
+            className={`
+              w-full p-6 rounded-2xl
+              bg-gradient-to-br from-blue-500 to-cyan-500
+              hover:from-blue-600 hover:to-cyan-600
+              text-white font-semibold text-lg
+              shadow-lg hover:shadow-xl
+              transition-all duration-200
+              active:scale-95
+              ${styles["button-press"]}
+            `}
+          >
+            <div className="flex items-center justify-center gap-3 mb-2">
+              <span className="text-2xl">🤖</span>
+              <span>Player vs AI</span>
+            </div>
+            <p className="text-sm opacity-90">Challenge the computer</p>
+          </button>
+        </div>
+
+        {/* AI Difficulty Selection */}
+        {gameMode === null && (
+          <div className="mt-8 bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10">
+            <h3 className="text-lg font-semibold mb-4 text-center">
+              AI Difficulty
+            </h3>
+            <div className="space-y-3">
+              {(["easy", "medium", "hard"] as AIDifficulty[]).map((diff) => (
+                <button
+                  key={diff}
+                  onClick={() => setAiDifficulty(diff)}
+                  className={`
+                    w-full p-4 rounded-xl text-left
+                    transition-all duration-200
+                    ${
+                      aiDifficulty === diff
+                        ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg"
+                        : "bg-white/5 hover:bg-white/10"
+                    }
+                  `}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-semibold capitalize">{diff}</div>
+                      <div className="text-sm opacity-75 mt-1">
+                        {getDifficultyDescription(diff)}
+                      </div>
+                    </div>
+                    {aiDifficulty === diff && <span>✓</span>}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-2xl mx-auto px-4 py-6">
@@ -250,7 +408,21 @@ export const ConnectFour = () => {
       </div>
 
       {/* Game Controls */}
-      <div className="flex gap-4 justify-center">
+      <div className="flex gap-4 justify-center flex-wrap">
+        <button
+          onClick={handleBackToMenu}
+          className={`
+            px-6 py-3 rounded-xl font-semibold text-white
+            bg-gradient-to-r from-gray-500 to-gray-600
+            hover:from-gray-600 hover:to-gray-700
+            active:scale-95
+            transition-all duration-200
+            shadow-lg hover:shadow-xl
+            ${styles["button-press"]}
+          `}
+        >
+          ⬅️ Back to Menu
+        </button>
         <button
           onClick={handleReset}
           className={`
@@ -279,16 +451,24 @@ export const ConnectFour = () => {
                 className="w-6 h-6 rounded-full"
                 style={{ backgroundColor: playerColors[1].primary }}
               />
-              <span className="text-sm font-medium">Player 1</span>
+              <span className="text-sm font-medium">Player 1 (You)</span>
             </div>
             <div className="flex items-center gap-2">
               <div
                 className="w-6 h-6 rounded-full"
                 style={{ backgroundColor: playerColors[2].primary }}
               />
-              <span className="text-sm font-medium">Player 2</span>
+              <span className="text-sm font-medium">
+                {gameMode === "ai" ? `AI (${aiDifficulty})` : "Player 2"}
+                {gameMode === "ai" && " 🤖"}
+              </span>
             </div>
           </div>
+          {gameMode === "ai" && isAIThinking && (
+            <div className="mt-3 text-center text-sm text-cyan-400">
+              🤔 AI is thinking...
+            </div>
+          )}
         </div>
       </div>
 
