@@ -243,7 +243,7 @@ export const ConnectFour = () => {
           {/* AI Difficulty */}
           <div className={`${styles["arcade-frame"]} ${styles["crt-effect"]}`}>
             <h3
-              className="text-xl font-bold mb-6 text-center font-mono"
+              className="text-xl font-bold mb-4 text-center font-mono"
               style={{
                 color: "#FFD700",
                 textShadow: "0 0 10px #FFD700, 0 0 20px #FFD700",
@@ -257,7 +257,7 @@ export const ConnectFour = () => {
                   key={diff}
                   onClick={() => setAiDifficulty(diff)}
                   className={`
-                    w-full p-5 rounded-lg text-left font-mono
+                    w-full p-4 rounded-lg text-left font-mono
                     transition-all duration-200 border-2
                     ${
                       aiDifficulty === diff
@@ -266,10 +266,10 @@ export const ConnectFour = () => {
                     }
                   `}
                 >
-                  <div className="flex items-center justify-between">
-                    <div>
+                  <div className="flex items-center justify-between py-2">
+                    <div className="space-y-2">
                       <div
-                        className="font-bold text-lg uppercase mb-1"
+                        className="font-bold text-lg uppercase"
                         style={{
                           color:
                             diff === "easy"
@@ -359,8 +359,8 @@ export const ConnectFour = () => {
                 <span
                   className="font-bold text-xl"
                   style={{
-                    color: "#FFD700",
-                    textShadow: "0 0 10px #FFD700",
+                    color: currentColor.primary,
+                    textShadow: `0 0 10px ${currentColor.glow}`,
                   }}
                 >
                   {gameState.moveCount}
@@ -410,7 +410,7 @@ export const ConnectFour = () => {
         {/* Game Board */}
         <div className={`mb-6 ${styles["board-entrance"]}`}>
           <div
-            className={`${styles["arcade-frame"]} ${styles["crt-effect"]} relative`}
+            className={`${styles["arcade-frame"]} ${styles["game-board-frame"]} ${styles["crt-effect"]} relative`}
           >
             {/* Board Grid */}
             <div className="grid grid-cols-7 gap-3 md:gap-4 p-2">
@@ -485,38 +485,16 @@ export const ConnectFour = () => {
         </div>
 
         {/* Game Controls */}
-        <div className="flex gap-4 justify-center flex-wrap mb-6">
+        <div className="flex gap-4 justify-center flex-wrap mb-10">
           <button
             onClick={handleBackToMenu}
-            className={`
-              px-8 py-4 rounded-xl font-bold text-lg font-mono
-              bg-gradient-to-r from-gray-800 to-gray-900
-              border-2 border-gray-600
-              hover:border-gray-400
-              text-white
-              shadow-[0_0_20px_rgba(128,128,128,0.3)]
-              hover:shadow-[0_0_30px_rgba(128,128,128,0.5)]
-              active:scale-95
-              transition-all duration-200
-            `}
+            className={`${styles["arcade-button"]} ${styles["arcade-button-control"]} ${styles["arcade-button-gray"]}`}
           >
             ⬅️ MENU
           </button>
           <button
             onClick={handleReset}
-            className={`
-              px-8 py-4 rounded-xl font-bold text-lg font-mono
-              bg-gradient-to-r from-yellow-600 to-orange-600
-              border-2 border-yellow-400
-              hover:border-yellow-300
-              text-white
-              shadow-[0_0_20px_rgba(255,215,0,0.5)]
-              hover:shadow-[0_0_40px_rgba(255,215,0,0.8)]
-              active:scale-95
-              transition-all duration-200
-              ${styles["neon-text"]}
-            `}
-            style={{ color: "#FFD700" }}
+            className={`${styles["arcade-button"]} ${styles["arcade-button-control"]} ${styles["arcade-button-yellow"]}`}
           >
             {gameState.status !== "playing" ? "🎮 NEW GAME" : "🔄 RESET"}
           </button>
