@@ -17,6 +17,8 @@ interface ConfettiPiece {
   rotation: number
 }
 
+// TypeScript provides type safety, prop-types not needed
+// eslint-disable-next-line react/prop-types
 export const Confetti: React.FC<ConfettiProps> = ({ active, playerColor = "#FFD700" }) => {
   const containerRef = useRef<HTMLDivElement>(null)
 

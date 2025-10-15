@@ -125,7 +125,7 @@ const isWinningMove = (board: Board, col: number, player: Player): boolean => {
 /**
  * Easy AI: Random valid move
  */
-const getEasyMove = (board: Board, _player: Player): number => {
+const getEasyMove = (board: Board): number => {
   const validCols = getValidColumns(board);
   return validCols[Math.floor(Math.random() * validCols.length)];
 };
@@ -326,18 +326,15 @@ export const getAIMove = (
     return 0; // No valid moves
   }
 
-  // Add slight delay randomization for more natural feel
-  const moveDelay = Math.random() * 300 + 200;
-
   switch (difficulty) {
     case "easy":
-      return getEasyMove(board, player);
+      return getEasyMove(board);
     case "medium":
       return getMediumMove(board, player);
     case "hard":
       return getHardMove(board, player);
     default:
-      return getEasyMove(board, player);
+      return getEasyMove(board);
   }
 };
 
