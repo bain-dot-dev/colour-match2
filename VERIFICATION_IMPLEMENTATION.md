@@ -4,35 +4,48 @@ This project implements a dual verification system using World ID Kit for browse
 
 ## Overview
 
-The verification system automatically detects the environment and provides the appropriate verification method:
+The authentication system automatically detects the environment and provides the appropriate method:
 
-- **World App Users**: Uses MiniKit verification commands with native World ID integration
-- **Browser Users**: Uses World ID Kit with QR code scanning
+- **World App Users**: Uses MiniKit wallet authentication (primary) with optional World ID verification
+- **Browser Users**: Uses World ID Kit with QR code scanning for verification
 
 ## Implementation Details
 
 ### 1. MiniKit Integration (World App)
 
-For users inside World App, the system uses MiniKit's verification commands:
+For users inside World App, the system uses MiniKit's wallet authentication as the primary flow:
 
 ```typescript
-// MiniKit verification payload
-const verifyPayload: VerifyCommandInput = {
-  action: process.env.NEXT_PUBLIC_ACTION || "login",
-  signal: undefined, // Optional additional data
-  verification_level: MiniKitVerificationLevel.Orb, // Higher security
+// Primary: Wallet Authentication
+const handleMiniKitWalletAuth = async () => {
+  try {
+    await walletAuth(); // Uses MiniKit.commandsAsync.walletAuth()
+    console.log("Wallet authentication completed successfully");
+  } catch (error) {
+    console.error("Wallet authentication error:", error);
+  }
 };
 
-// Send verification command
-const payload = MiniKit.commands.verify(verifyPayload);
+// Optional: World ID Verification for specific actions
+const handleMiniKitVerification = async () => {
+  const verifyPayload: VerifyCommandInput = {
+    action: process.env.NEXT_PUBLIC_ACTION || "verify-action",
+    signal: undefined,
+    verification_level: MiniKitVerificationLevel.Orb,
+  };
 
-// Listen for response
-MiniKit.subscribe(ResponseEvent.MiniAppVerifyAction, async (response) => {
-  if (response.status === "success") {
-    // Proceed with wallet authentication
-    await walletAuth();
-  }
-});
+  MiniKit.commands.verify(verifyPayload);
+
+  MiniKit.subscribe(ResponseEvent.MiniAppVerifyAction, async (response) => {
+    if (response.status === "success") {
+      // Send to backend for verification
+      await fetch("/api/verify-proof", {
+        method: "POST",
+        body: JSON.stringify({ payload: response, action, signal }),
+      });
+    }
+  });
+};
 ```
 
 ### 2. World ID Kit Integration (Browser)

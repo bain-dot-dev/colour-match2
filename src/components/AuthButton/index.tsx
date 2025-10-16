@@ -36,7 +36,32 @@ export const AuthButton = () => {
     verificationStatus
   );
 
-  // MiniKit verification for World App users
+  // MiniKit wallet authentication for World App users (primary auth flow)
+  const handleMiniKitWalletAuth = useCallback(async () => {
+    if (!isInstalled || isPending) {
+      console.warn(
+        "MiniKit wallet auth blocked - MiniKit not installed or pending"
+      );
+      return;
+    }
+
+    setIsPending(true);
+    setVerificationStatus("verifying");
+    console.log("Starting MiniKit wallet authentication...");
+
+    try {
+      await walletAuth();
+      console.log("Wallet authentication completed successfully");
+      setVerificationStatus("success");
+    } catch (error) {
+      console.error("Wallet authentication error:", error);
+      setVerificationStatus("error");
+    } finally {
+      setIsPending(false);
+    }
+  }, [isInstalled, isPending]);
+
+  // MiniKit verification for specific actions (not for login)
   const handleMiniKitVerification = useCallback(async () => {
     if (!isInstalled || isPending) {
       console.warn(
@@ -52,7 +77,7 @@ export const AuthButton = () => {
     try {
       // Set up verification command payload
       const verifyPayload: VerifyCommandInput = {
-        action: process.env.NEXT_PUBLIC_ACTION || "login",
+        action: process.env.NEXT_PUBLIC_ACTION || "verify-action",
         signal: undefined, // Optional additional data
         verification_level: MiniKitVerificationLevel.Orb, // Use Orb verification for higher security
       };
@@ -69,17 +94,28 @@ export const AuthButton = () => {
           setVerificationStatus("success");
           console.log("MiniKit verification successful:", response);
 
-          // Proceed with wallet authentication after successful verification
+          // Send verification to backend
           try {
-            await walletAuth();
-            console.log(
-              "Wallet authentication completed successfully after verification"
-            );
+            const verifyResponse = await fetch("/api/verify-proof", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                payload: response,
+                action: process.env.NEXT_PUBLIC_ACTION || "verify-action",
+                signal: undefined,
+              }),
+            });
+
+            if (!verifyResponse.ok) {
+              throw new Error("Verification failed");
+            }
+
+            const data = await verifyResponse.json();
+            console.log("Backend verification successful:", data);
           } catch (error) {
-            console.error(
-              "Wallet authentication error after verification:",
-              error
-            );
+            console.error("Backend verification error:", error);
             setVerificationStatus("error");
           }
         } else {
@@ -200,21 +236,19 @@ export const AuthButton = () => {
     );
   }
 
-  // If inside World App, show World ID verification + wallet authentication
+  // If inside World App, show wallet authentication (primary) + verification (optional)
   return (
     <div className="flex flex-col items-center gap-4">
       <p className="text-center text-sm text-gray-600">
-        Verify your identity and connect your wallet
+        Connect your wallet to get started
       </p>
 
+      {/* Primary: Wallet Authentication */}
       <LiveFeedback
         label={{
-          failed: "Verification failed",
-          pending:
-            verificationStatus === "verifying"
-              ? "Verifying identity..."
-              : "Processing...",
-          success: "Verified & Connected",
+          failed: "Authentication failed",
+          pending: "Connecting wallet...",
+          success: "Wallet Connected",
         }}
         state={
           verificationStatus === "error"
@@ -227,29 +261,44 @@ export const AuthButton = () => {
         }
       >
         <Button
-          onClick={handleMiniKitVerification}
+          onClick={handleMiniKitWalletAuth}
           disabled={isPending}
           size="lg"
           variant="primary"
         >
           {verificationStatus === "verifying"
-            ? "Verifying Identity..."
+            ? "Connecting Wallet..."
             : verificationStatus === "success"
-            ? "Verified & Connected"
+            ? "Wallet Connected"
             : verificationStatus === "error"
-            ? "Verification Failed"
-            : "Verify Identity & Connect Wallet"}
+            ? "Connection Failed"
+            : "Connect Wallet"}
         </Button>
       </LiveFeedback>
 
+      {/* Optional: World ID Verification */}
+      <div className="mt-4 pt-4 border-t border-gray-200">
+        <p className="text-center text-xs text-gray-500 mb-2">
+          Optional: Verify your World ID
+        </p>
+        <Button
+          onClick={handleMiniKitVerification}
+          disabled={isPending}
+          size="sm"
+          variant="secondary"
+        >
+          Verify World ID
+        </Button>
+      </div>
+
       {verificationStatus === "success" && (
         <p className="text-xs text-green-600 text-center">
-          ✅ Identity verified! Wallet connected successfully.
+          ✅ Wallet connected successfully!
         </p>
       )}
       {verificationStatus === "error" && (
         <p className="text-xs text-red-600 text-center">
-          ❌ Verification failed. Please try again.
+          ❌ Connection failed. Please try again.
         </p>
       )}
     </div>

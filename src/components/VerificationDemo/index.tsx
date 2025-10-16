@@ -1,5 +1,6 @@
 "use client";
 import { AuthButton } from "../AuthButton";
+import { DebugInfo } from "../DebugInfo";
 import { useMiniKit } from "@worldcoin/minikit-js/minikit-provider";
 
 /**
@@ -15,11 +16,11 @@ export const VerificationDemo = () => {
     <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow-lg">
       <div className="text-center mb-6">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">
-          World ID Verification Demo
+          World ID Verification
         </h1>
         <p className="text-sm text-gray-600">
           {isInstalled === true
-            ? "You're in World App - using MiniKit verification"
+            ? "You're in World App - using MiniKit wallet authentication"
             : isInstalled === false
             ? "You're in a browser - using World ID Kit QR code"
             : "Checking environment..."}
@@ -29,6 +30,8 @@ export const VerificationDemo = () => {
       <div className="space-y-4">
         <AuthButton />
 
+        <DebugInfo />
+
         <div className="mt-6 p-4 bg-gray-50 rounded-lg">
           <h3 className="text-sm font-semibold text-gray-700 mb-2">
             How it works:
@@ -36,8 +39,8 @@ export const VerificationDemo = () => {
           <ul className="text-xs text-gray-600 space-y-1">
             {isInstalled === true ? (
               <>
-                <li>• MiniKit verifies your World ID identity</li>
-                <li>• Connects your World App wallet</li>
+                <li>• Connect your World App wallet (primary)</li>
+                <li>• Optionally verify World ID for specific actions</li>
                 <li>• Seamless native experience</li>
               </>
             ) : (
