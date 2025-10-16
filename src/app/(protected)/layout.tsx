@@ -1,19 +1,29 @@
-import { auth } from '@/auth';
-// import { Navigation } from '@/components/Navigation';
-import { Page } from '@/components/PageLayout';
+import { auth } from "@/auth";
+import { redirect } from "next/navigation";
+import { Page } from "@/components/PageLayout";
 
-export default async function TabsLayout({
+/**
+ * Protected layout for authenticated users only
+ * Middleware will handle the redirect, but this provides a server-side check as well
+ */
+export default async function ProtectedLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const session = await auth();
 
-  // If the user is not authenticated, redirect to the login page
+  // Server-side authentication check
+  // The middleware should already handle this, but this is a backup
   if (!session) {
-    console.log('Not authenticated');
-    // redirect('/');
+    console.log("⚠️  Not authenticated - redirecting to login");
+    redirect("/");
   }
+
+  console.log("✅ Authenticated user:", {
+    username: session.user?.username,
+    walletAddress: session.user?.walletAddress,
+  });
 
   return (
     <Page>

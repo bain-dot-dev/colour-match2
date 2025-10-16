@@ -7,16 +7,19 @@ import {
 } from "@worldcoin/idkit";
 import { MiniKit } from "@worldcoin/minikit-js";
 import { useMiniKit } from "@worldcoin/minikit-js/minikit-provider";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import type { AuthStatus } from "@/types/verification";
+import { getUserByAddressSafe, formatUserForAuth } from "@/types/minikit";
 
 /**
  * Authentication component supporting both World ID Kit and Wallet Authentication
+ * - Wallet Authentication for World App users (PRIMARY METHOD)
  * - World ID Kit for browser users (QR code verification)
- * - Wallet Authentication for World App users
- * Based on the working authentication guide
+ *
+ * Per official docs: "Use Wallet Authentication as the primary auth flow"
+ * @see https://docs.world.org/mini-apps/commands/wallet-auth
  */
 export const AuthButton = () => {
   const [isPending, setIsPending] = useState(false);
@@ -25,26 +28,125 @@ export const AuthButton = () => {
   const { isInstalled } = useMiniKit();
   const router = useRouter();
 
-  console.log(
-    "AuthButton rendered - isInstalled:",
-    isInstalled,
-    "isPending:",
-    isPending,
-    "authStatus:",
-    authStatus
-  );
-
   // Get environment variables
   const appId = process.env.NEXT_PUBLIC_APP_ID || "";
   const actionId = process.env.NEXT_PUBLIC_ACTION || "";
 
+  /**
+   * Wallet Authentication for World App users
+   * This is the PRIMARY authentication method
+   */
+  const handleWalletAuth = useCallback(async () => {
+    if (!isInstalled) {
+      setError("Please open this app in World App");
+      return;
+    }
+
+    setIsPending(true);
+    setAuthStatus("authenticating");
+    setError(null);
+
+    console.log("🔐 Starting Wallet Authentication...");
+
+    try {
+      // Step 1: Get nonce from server
+      console.log("📝 Fetching nonce from server...");
+      const nonceRes = await fetch("/api/nonce");
+
+      if (!nonceRes.ok) {
+        throw new Error("Failed to get nonce from server");
+      }
+
+      const { nonce } = await nonceRes.json();
+      console.log("✅ Nonce received:", nonce);
+
+      // Step 2: Request wallet authentication from MiniKit
+      console.log("🔑 Requesting wallet signature...");
+      const { finalPayload } = await MiniKit.commandsAsync.walletAuth({
+        nonce: nonce,
+        requestId: "0",
+        expirationTime: new Date(
+          new Date().getTime() + 7 * 24 * 60 * 60 * 1000
+        ),
+        notBefore: new Date(new Date().getTime() - 24 * 60 * 60 * 1000),
+        statement: "Sign in to this app",
+      });
+
+      console.log("📦 Wallet auth response:", finalPayload);
+
+      // Check for errors
+      if (finalPayload.status === "error") {
+        console.error("❌ Wallet auth failed:", finalPayload);
+        throw new Error(
+          finalPayload.error_code || "Wallet authentication failed"
+        );
+      }
+
+      // Step 3: Verify SIWE message on server
+      console.log("🔍 Verifying signature with server...");
+      const verifyRes = await fetch("/api/complete-siwe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          payload: finalPayload,
+          nonce,
+        }),
+      });
+
+      const verifyData = await verifyRes.json();
+      console.log("✅ Server verification result:", verifyData);
+
+      if (!verifyData.isValid) {
+        throw new Error(verifyData.message || "Invalid signature");
+      }
+
+      // Step 4: Get wallet address
+      const walletAddress = finalPayload.address;
+      console.log("💼 Wallet address:", walletAddress);
+
+      // Step 5: Get user info from MiniKit (with safe fallback)
+      console.log("👤 Fetching user info from MiniKit...");
+      const userInfo = await getUserByAddressSafe(walletAddress);
+      console.log("✅ User info:", userInfo);
+
+      // Step 6: Create session with NextAuth
+      console.log("🎫 Creating session...");
+      const authCredentials = formatUserForAuth(userInfo);
+      const result = await signIn("credentials", {
+        ...authCredentials,
+        redirect: false,
+      });
+
+      console.log("🎉 Sign in result:", result);
+
+      if (result?.ok) {
+        setAuthStatus("success");
+        console.log("✅ Authentication successful! Redirecting...");
+        router.push("/home");
+        router.refresh();
+      } else {
+        throw new Error(result?.error || "Failed to create session");
+      }
+    } catch (err) {
+      console.error("❌ Wallet auth error:", err);
+      const errorMessage =
+        err instanceof Error ? err.message : "Authentication failed";
+      setError(errorMessage);
+      setAuthStatus("error");
+    } finally {
+      setIsPending(false);
+    }
+  }, [isInstalled, router]);
+
+  /**
+   * World ID verification handler for browser users
+   * This is the ALTERNATIVE method when not in World App
+   */
   const verifyWithServer = useCallback(
     async (payload: ISuccessResult, signal: string) => {
       const response = await fetch("/api/verify-proof", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           payload,
           action: actionId,
@@ -59,111 +161,9 @@ export const AuthButton = () => {
     [actionId]
   );
 
-  // Wallet Authentication for World App users
-  const handleWalletAuth = useCallback(async () => {
-    if (!isInstalled) {
-      setError("MiniKit is not installed. Please install it first.");
-      return;
-    }
-
-    setIsPending(true);
-    setAuthStatus("authenticating");
-    setError(null);
-    console.log("Starting wallet authentication...");
-
-    try {
-      // Get nonce from server
-      const res = await fetch("/api/nonce");
-      const { nonce } = await res.json();
-
-      // Use the official wallet authentication method
-      const { commandPayload: generateMessageResult, finalPayload } =
-        await MiniKit.commandsAsync.walletAuth({
-          nonce: nonce,
-          requestId: "0", // Optional
-          expirationTime: new Date(
-            new Date().getTime() + 7 * 24 * 60 * 60 * 1000
-          ),
-          notBefore: new Date(new Date().getTime() - 24 * 60 * 60 * 1000),
-          statement: "Sign in to Connect Four - https://worldcoin.com/apps",
-        });
-
-      console.log("Wallet auth result:", {
-        generateMessageResult,
-        finalPayload,
-      });
-
-      if (finalPayload.status === "error") {
-        console.error("Wallet auth failed:", finalPayload);
-        setError("Wallet authentication failed. Please try again.");
-        setAuthStatus("error");
-        return;
-      }
-
-      // Verify SIWE message on the server
-      const response = await fetch("/api/complete-siwe", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          payload: finalPayload,
-          nonce,
-        }),
-      });
-
-      const verifyData = await response.json();
-      console.log("SIWE verification result:", verifyData);
-
-      if (verifyData.isValid) {
-        // Get wallet address from finalPayload (as per official docs)
-        const walletAddress = finalPayload.address;
-        console.log("Wallet address:", walletAddress);
-
-        // Get user info from MiniKit using the correct method
-        const userInfo = await MiniKit.getUserByAddress(walletAddress);
-        console.log("User info from MiniKit:", userInfo);
-
-        // Sign in with NextAuth
-        const result = await signIn("credentials", {
-          walletAddress: walletAddress,
-          username: userInfo?.username || "Anonymous",
-          profilePictureUrl:
-            userInfo?.profilePictureUrl ||
-            "https://api.dicebear.com/7.x/avataaars/svg?seed=user",
-          permissions: JSON.stringify({}),
-          optedIntoOptionalAnalytics: "false",
-          worldAppVersion: "",
-          deviceOS: "world-app",
-          redirect: false,
-        });
-
-        console.log("NextAuth signIn result:", result);
-
-        if (result?.ok) {
-          setAuthStatus("success");
-          router.push("/home");
-        } else {
-          setError("Authentication failed. Please try again.");
-          setAuthStatus("error");
-        }
-      } else {
-        setError("Invalid signature. Please try again.");
-        setAuthStatus("error");
-      }
-    } catch (err) {
-      console.error("Wallet auth error:", err);
-      setError(err instanceof Error ? err.message : "Authentication failed");
-      setAuthStatus("error");
-    } finally {
-      setIsPending(false);
-    }
-  }, [isInstalled, router]);
-
-  // World ID verification handler for browser users
   const handleWorldIDVerify = useCallback(
     async (proof: ISuccessResult) => {
-      console.log("World ID proof received:", proof);
+      console.log("🌍 World ID proof received:", proof);
       setIsPending(true);
       setAuthStatus("authenticating");
       setError(null);
@@ -175,13 +175,13 @@ export const AuthButton = () => {
         // Create a basic user session for World ID verification
         const result = await signIn("credentials", {
           walletAddress: proof.nullifier_hash || proof.merkle_root || "unknown",
-          username: `User_${(
+          username: `WorldID_${(
             proof.nullifier_hash ||
             proof.merkle_root ||
             "unknown"
           ).slice(0, 8)}`,
           profilePictureUrl:
-            "https://api.dicebear.com/7.x/avataaars/svg?seed=user",
+            "https://api.dicebear.com/7.x/avataaars/svg?seed=worldid",
           permissions: JSON.stringify({}),
           optedIntoOptionalAnalytics: "false",
           worldAppVersion: "",
@@ -192,12 +192,12 @@ export const AuthButton = () => {
         if (result?.ok) {
           setAuthStatus("success");
           router.push("/home");
+          router.refresh();
         } else {
-          setError("Authentication failed. Please try again.");
-          setAuthStatus("error");
+          throw new Error("Authentication failed");
         }
       } catch (error) {
-        console.error("World ID verification error:", error);
+        console.error("❌ World ID verification error:", error);
         setError(
           error instanceof Error ? error.message : "Verification failed"
         );
@@ -210,19 +210,11 @@ export const AuthButton = () => {
   );
 
   const onWorldIDSuccess = useCallback(() => {
-    console.log("World ID success, redirecting...");
-    setIsPending(false);
+    console.log("✅ World ID success");
     setAuthStatus("success");
-    // NextAuth will handle the redirect automatically
   }, []);
 
-  useEffect(() => {
-    console.log("AuthButton useEffect - isInstalled:", isInstalled);
-    // Auto-authentication disabled to allow manual login testing
-    // Re-enable this if you want auto-login on component mount
-  }, [isInstalled]);
-
-  // If outside World App, show World ID Kit QR code authentication
+  // BROWSER: Show World ID Kit QR code authentication
   if (isInstalled === false) {
     return (
       <div className="flex flex-col items-center gap-4">
@@ -254,27 +246,22 @@ export const AuthButton = () => {
                 : authStatus === "success"
                 ? "Verified!"
                 : authStatus === "error"
-                ? "Verification Failed"
+                ? "Try Again"
                 : "Verify with World ID"}
             </Button>
           )}
         </IDKitWidget>
 
-        <p className="text-xs text-gray-500 text-center">
-          Scan the QR code with World App to continue
-        </p>
-
         {error && <LiveFeedback state="failed">{error}</LiveFeedback>}
-
         {authStatus === "success" && (
           <LiveFeedback state="success">
-            Authentication successful! Redirecting...
+            Authenticated! Redirecting...
           </LiveFeedback>
         )}
 
         <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
           <p className="text-xs text-blue-700 text-center">
-            <strong>Alternative:</strong> Open this app in World App for wallet
+            <strong>Recommended:</strong> Open this app in World App for wallet
             authentication
           </p>
         </div>
@@ -282,7 +269,7 @@ export const AuthButton = () => {
     );
   }
 
-  // If inside World App, show wallet authentication
+  // WORLD APP: Show wallet authentication (PRIMARY METHOD)
   return (
     <div className="flex flex-col items-center gap-4">
       <div className="text-center">
@@ -290,7 +277,7 @@ export const AuthButton = () => {
           Connect Your Wallet
         </h2>
         <p className="text-sm text-gray-600">
-          Authenticate using your World App wallet to get started
+          Sign in with your World App wallet
         </p>
       </div>
 
@@ -301,27 +288,25 @@ export const AuthButton = () => {
         variant="primary"
       >
         {authStatus === "authenticating"
-          ? "Connecting Wallet..."
+          ? "Connecting..."
           : authStatus === "success"
-          ? "Wallet Connected"
+          ? "Connected!"
           : authStatus === "error"
-          ? "Connection Failed"
+          ? "Try Again"
           : "Connect Wallet"}
       </Button>
 
       {error && <LiveFeedback state="failed">{error}</LiveFeedback>}
-
       {authStatus === "success" && (
         <LiveFeedback state="success">
-          Authentication successful! Redirecting...
+          Authenticated! Redirecting...
         </LiveFeedback>
       )}
 
-      <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-        <p className="text-xs text-gray-600 text-center">
-          <strong>Note:</strong> This app uses Wallet Authentication for secure,
-          passwordless login. No World ID verification required for
-          authentication.
+      <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+        <p className="text-xs text-green-700 text-center">
+          <strong>🔐 Wallet Authentication:</strong> Secure, passwordless login
+          using SIWE
         </p>
       </div>
     </div>
