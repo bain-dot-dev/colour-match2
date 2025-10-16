@@ -2,10 +2,11 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 export async function GET() {
-  // Generate a secure nonce
+  // Expects only alphanumeric characters - must be at least 8 characters
   const nonce = crypto.randomUUID().replace(/-/g, "");
 
-  // Store the nonce in a secure cookie
+  // The nonce should be stored somewhere that is not tamperable by the client
+  // Optionally you can HMAC the nonce with a secret key stored in your environment
   const cookieStore = await cookies();
   cookieStore.set("siwe", nonce, {
     secure: true,

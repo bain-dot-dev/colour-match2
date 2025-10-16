@@ -11,43 +11,25 @@ interface IRequestPayload {
 }
 
 export const POST = async (req: NextRequest) => {
+  const { payload, nonce } = (await req.json()) as IRequestPayload;
+
+  const cookieStore = await cookies();
+  if (nonce != cookieStore.get("siwe")?.value) {
+    return NextResponse.json({
+      status: "error",
+      isValid: false,
+      message: "Invalid nonce",
+    });
+  }
+
   try {
-    const { payload, nonce } = (await req.json()) as IRequestPayload;
-
-    // Verify the nonce matches what we stored
-    const cookieStore = await cookies();
-    const storedNonce = cookieStore.get("siwe")?.value;
-    if (nonce !== storedNonce) {
-      return NextResponse.json({
-        status: "error",
-        isValid: false,
-        message: "Invalid nonce",
-      });
-    }
-
-    // Verify the SIWE message
     const validMessage = await verifySiweMessage(payload, nonce);
-
-    if (validMessage.isValid) {
-      // Clear the nonce after successful verification
-      cookieStore.delete("siwe");
-
-      return NextResponse.json({
-        status: "success",
-        isValid: true,
-        user: {
-          walletAddress: payload.address,
-        },
-      });
-    } else {
-      return NextResponse.json({
-        status: "error",
-        isValid: false,
-        message: "Invalid signature",
-      });
-    }
+    return NextResponse.json({
+      status: "success",
+      isValid: validMessage.isValid,
+    });
   } catch (error: unknown) {
-    console.error("SIWE verification error:", error);
+    // Handle errors in validation or processing
     const errorMessage =
       error instanceof Error ? error.message : "Verification failed";
     return NextResponse.json({

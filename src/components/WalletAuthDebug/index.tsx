@@ -54,35 +54,61 @@ export const WalletAuthDebug = () => {
       const { nonce } = await nonceResponse.json();
       addDebugInfo(`✅ Nonce received: ${nonce}`);
 
-      // Test 3: Try wallet auth
+      // Test 3: Try wallet auth using official implementation
       addDebugInfo("🔄 Attempting wallet authentication...");
-      const authResult = await MiniKit.commandsAsync.walletAuth({
-        nonce,
-        expirationTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        notBefore: new Date(Date.now() - 24 * 60 * 60 * 1000),
-        statement: `Debug test - ${nonce}`,
-      });
+      const { commandPayload: generateMessageResult, finalPayload } =
+        await MiniKit.commandsAsync.walletAuth({
+          nonce: nonce,
+          requestId: "0", // Optional
+          expirationTime: new Date(
+            new Date().getTime() + 7 * 24 * 60 * 60 * 1000
+          ),
+          notBefore: new Date(new Date().getTime() - 24 * 60 * 60 * 1000),
+          statement: "Debug test - https://worldcoin.com/apps",
+        });
 
       addDebugInfo(
-        `✅ Wallet auth result: ${JSON.stringify(authResult, null, 2)}`
+        `✅ Wallet auth result: ${JSON.stringify(
+          { generateMessageResult, finalPayload },
+          null,
+          2
+        )}`
       );
 
-      if (authResult.finalPayload.status === "success") {
-        addDebugInfo("✅ Wallet authentication successful!");
-
-        // Test 4: Try to get user info
-        addDebugInfo("🔄 Getting user info...");
-        const userInfo = await MiniKit.getUserByAddress(
-          authResult.finalPayload.address
-        );
-        addDebugInfo(`✅ User info: ${JSON.stringify(userInfo, null, 2)}`);
-      } else {
+      if (finalPayload.status === "error") {
         addDebugInfo(
-          `❌ Wallet auth failed: ${
-            authResult.finalPayload.error_code || "Unknown error"
-          }`
+          `❌ Wallet auth failed: ${finalPayload.error_code || "Unknown error"}`
         );
+        return;
       }
+
+      addDebugInfo("✅ Wallet authentication successful!");
+
+      // Test 4: Try to get user info using official method
+      addDebugInfo("🔄 Getting user info...");
+      const walletAddress = finalPayload.address;
+      addDebugInfo(`Wallet address from finalPayload: ${walletAddress}`);
+
+      const userInfo = await MiniKit.getUserByAddress(walletAddress);
+      addDebugInfo(`✅ User info: ${JSON.stringify(userInfo, null, 2)}`);
+
+      // Test 5: Try SIWE verification
+      addDebugInfo("🔄 Testing SIWE verification...");
+      const verifyResponse = await fetch("/api/complete-siwe", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          payload: finalPayload,
+          nonce,
+        }),
+      });
+
+      const verifyData = await verifyResponse.json();
+      addDebugInfo(
+        `✅ SIWE verification result: ${JSON.stringify(verifyData, null, 2)}`
+      );
     } catch (error) {
       addDebugInfo(`❌ Error during wallet auth test: ${error}`);
     }

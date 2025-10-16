@@ -73,73 +73,82 @@ export const AuthButton = () => {
 
     try {
       // Get nonce from server
-      const nonceResponse = await fetch("/api/nonce");
-      const { nonce } = await nonceResponse.json();
+      const res = await fetch("/api/nonce");
+      const { nonce } = await res.json();
 
-      // Use the correct wallet authentication method as per documentation
-      const authResult = await MiniKit.commandsAsync.walletAuth({
-        nonce,
-        expirationTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        notBefore: new Date(Date.now() - 24 * 60 * 60 * 1000),
-        statement: `Sign in to Connect Four\n\nNonce: ${nonce}`,
-      });
-
-      console.log("Wallet auth result:", authResult);
-
-      if (authResult.finalPayload.status === "success") {
-        // Verify SIWE message on the server
-        const verifyResponse = await fetch("/api/complete-siwe", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            payload: authResult.finalPayload,
-            nonce,
-          }),
+      // Use the official wallet authentication method
+      const { commandPayload: generateMessageResult, finalPayload } =
+        await MiniKit.commandsAsync.walletAuth({
+          nonce: nonce,
+          requestId: "0", // Optional
+          expirationTime: new Date(
+            new Date().getTime() + 7 * 24 * 60 * 60 * 1000
+          ),
+          notBefore: new Date(new Date().getTime() - 24 * 60 * 60 * 1000),
+          statement: "Sign in to Connect Four - https://worldcoin.com/apps",
         });
 
-        const verifyData = await verifyResponse.json();
-        console.log("SIWE verification result:", verifyData);
+      console.log("Wallet auth result:", {
+        generateMessageResult,
+        finalPayload,
+      });
 
-        if (verifyData.isValid) {
-          // Get user info from MiniKit using the correct method
-          const userInfo = await MiniKit.getUserByAddress(
-            authResult.finalPayload.address
-          );
+      if (finalPayload.status === "error") {
+        console.error("Wallet auth failed:", finalPayload);
+        setError("Wallet authentication failed. Please try again.");
+        setAuthStatus("error");
+        return;
+      }
 
-          console.log("User info from MiniKit:", userInfo);
+      // Verify SIWE message on the server
+      const response = await fetch("/api/complete-siwe", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          payload: finalPayload,
+          nonce,
+        }),
+      });
 
-          // Sign in with NextAuth
-          const result = await signIn("credentials", {
-            walletAddress: authResult.finalPayload.address,
-            username: userInfo?.username || "Anonymous",
-            profilePictureUrl:
-              userInfo?.profilePictureUrl ||
-              "https://api.dicebear.com/7.x/avataaars/svg?seed=user",
-            permissions: JSON.stringify({}),
-            optedIntoOptionalAnalytics: "false",
-            worldAppVersion: "",
-            deviceOS: "world-app",
-            redirect: false,
-          });
+      const verifyData = await response.json();
+      console.log("SIWE verification result:", verifyData);
 
-          console.log("NextAuth signIn result:", result);
+      if (verifyData.isValid) {
+        // Get wallet address from finalPayload (as per official docs)
+        const walletAddress = finalPayload.address;
+        console.log("Wallet address:", walletAddress);
 
-          if (result?.ok) {
-            setAuthStatus("success");
-            router.push("/home");
-          } else {
-            setError("Authentication failed. Please try again.");
-            setAuthStatus("error");
-          }
+        // Get user info from MiniKit using the correct method
+        const userInfo = await MiniKit.getUserByAddress(walletAddress);
+        console.log("User info from MiniKit:", userInfo);
+
+        // Sign in with NextAuth
+        const result = await signIn("credentials", {
+          walletAddress: walletAddress,
+          username: userInfo?.username || "Anonymous",
+          profilePictureUrl:
+            userInfo?.profilePictureUrl ||
+            "https://api.dicebear.com/7.x/avataaars/svg?seed=user",
+          permissions: JSON.stringify({}),
+          optedIntoOptionalAnalytics: "false",
+          worldAppVersion: "",
+          deviceOS: "world-app",
+          redirect: false,
+        });
+
+        console.log("NextAuth signIn result:", result);
+
+        if (result?.ok) {
+          setAuthStatus("success");
+          router.push("/home");
         } else {
-          setError("Invalid signature. Please try again.");
+          setError("Authentication failed. Please try again.");
           setAuthStatus("error");
         }
       } else {
-        console.error("Wallet auth failed:", authResult.finalPayload);
-        setError("Wallet authentication failed. Please try again.");
+        setError("Invalid signature. Please try again.");
         setAuthStatus("error");
       }
     } catch (err) {
