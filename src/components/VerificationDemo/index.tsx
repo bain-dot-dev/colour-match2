@@ -1,5 +1,5 @@
 "use client";
-import { AuthButton } from "../AuthButton";
+import { HybridAuthButton } from "../HybridAuthButton";
 // import { DebugInfo } from "../DebugInfo";
 import { WalletAuthDebug } from "../WalletAuthDebug";
 import { useMiniKit } from "@worldcoin/minikit-js/minikit-provider";
@@ -107,7 +107,7 @@ export const VerificationDemo = () => {
       </div>
 
       <div className="space-y-4">
-        <AuthButton />
+        <HybridAuthButton />
 
         {/* <DebugInfo /> */}
         <WalletAuthDebug />

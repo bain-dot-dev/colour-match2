@@ -5,13 +5,12 @@ import {
   VerificationLevel,
   ISuccessResult,
 } from "@worldcoin/idkit";
-import { MiniKit } from "@worldcoin/minikit-js";
 import { useMiniKit } from "@worldcoin/minikit-js/minikit-provider";
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import type { AuthStatus } from "@/types/verification";
-import { getUserByAddressSafe, formatUserForAuth } from "@/types/minikit";
+import { walletAuth } from "@/auth/wallet";
 
 /**
  * Authentication component supporting both World ID Kit and Wallet Authentication
@@ -35,6 +34,7 @@ export const AuthButton = () => {
   /**
    * Wallet Authentication for World App users
    * This is the PRIMARY authentication method
+   * Uses the walletAuth helper which handles verification in NextAuth
    */
   const handleWalletAuth = useCallback(async () => {
     if (!isInstalled) {
@@ -46,87 +46,17 @@ export const AuthButton = () => {
     setAuthStatus("authenticating");
     setError(null);
 
-    console.log("🔐 Starting Wallet Authentication...");
-
     try {
-      // Step 1: Get nonce from server
-      console.log("📝 Fetching nonce from server...");
-      const nonceRes = await fetch("/api/nonce");
+      // walletAuth handles:
+      // 1. Nonce generation
+      // 2. MiniKit wallet signature request
+      // 3. NextAuth sign in with verification
+      // 4. Redirect to /home
+      await walletAuth();
 
-      if (!nonceRes.ok) {
-        throw new Error("Failed to get nonce from server");
-      }
-
-      const { nonce } = await nonceRes.json();
-      console.log("✅ Nonce received:", nonce);
-
-      // Step 2: Request wallet authentication from MiniKit
-      console.log("🔑 Requesting wallet signature...");
-      const { finalPayload } = await MiniKit.commandsAsync.walletAuth({
-        nonce: nonce,
-        requestId: "0",
-        expirationTime: new Date(
-          new Date().getTime() + 7 * 24 * 60 * 60 * 1000
-        ),
-        notBefore: new Date(new Date().getTime() - 24 * 60 * 60 * 1000),
-        statement: "Sign in to this app",
-      });
-
-      console.log("📦 Wallet auth response:", finalPayload);
-
-      // Check for errors
-      if (finalPayload.status === "error") {
-        console.error("❌ Wallet auth failed:", finalPayload);
-        throw new Error(
-          finalPayload.error_code || "Wallet authentication failed"
-        );
-      }
-
-      // Step 3: Verify SIWE message on server
-      console.log("🔍 Verifying signature with server...");
-      const verifyRes = await fetch("/api/complete-siwe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          payload: finalPayload,
-          nonce,
-        }),
-      });
-
-      const verifyData = await verifyRes.json();
-      console.log("✅ Server verification result:", verifyData);
-
-      if (!verifyData.isValid) {
-        throw new Error(verifyData.message || "Invalid signature");
-      }
-
-      // Step 4: Get wallet address
-      const walletAddress = finalPayload.address;
-      console.log("💼 Wallet address:", walletAddress);
-
-      // Step 5: Get user info from MiniKit (with safe fallback)
-      console.log("👤 Fetching user info from MiniKit...");
-      const userInfo = await getUserByAddressSafe(walletAddress);
-      console.log("✅ User info:", userInfo);
-
-      // Step 6: Create session with NextAuth
-      console.log("🎫 Creating session...");
-      const authCredentials = formatUserForAuth(userInfo);
-      const result = await signIn("credentials", {
-        ...authCredentials,
-        redirect: false,
-      });
-
-      console.log("🎉 Sign in result:", result);
-
-      if (result?.ok) {
-        setAuthStatus("success");
-        console.log("✅ Authentication successful! Redirecting...");
-        router.push("/home");
-        router.refresh();
-      } else {
-        throw new Error(result?.error || "Failed to create session");
-      }
+      setAuthStatus("success");
+      console.log("✅ Authentication successful!");
+      // Note: walletAuth redirects to /home automatically
     } catch (err) {
       console.error("❌ Wallet auth error:", err);
       const errorMessage =
@@ -136,7 +66,7 @@ export const AuthButton = () => {
     } finally {
       setIsPending(false);
     }
-  }, [isInstalled, router]);
+  }, [isInstalled]);
 
   /**
    * World ID verification handler for browser users
