@@ -1,18 +1,23 @@
-// import { auth } from "@/auth";
+import { auth } from "@/auth";
 import { Page } from "@/components/PageLayout";
 import { ConnectFour } from "@/components/ConnectFour";
-// import { Marble, TopBar } from "@worldcoin/mini-apps-ui-kit-react";
+import { Marble, TopBar } from "@worldcoin/mini-apps-ui-kit-react";
+import { redirect } from "next/navigation";
 
 /**
  * Connect Four Game Page
  * Protected route that requires authentication
  */
 export default async function GamePage() {
-  // const session = await auth();
+  const session = await auth();
+
+  if (!session) {
+    redirect("/");
+  }
 
   return (
     <>
-      {/* <Page.Header className="p-0">
+      <Page.Header className="p-0">
         <TopBar
           title="Connect Four"
           endAdornment={
@@ -24,7 +29,7 @@ export default async function GamePage() {
             </div>
           }
         />
-      </Page.Header> */}
+      </Page.Header>
       <Page.Main className="flex flex-col items-center justify-start mb-16">
         <ConnectFour />
       </Page.Main>

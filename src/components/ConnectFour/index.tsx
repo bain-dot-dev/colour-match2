@@ -11,6 +11,7 @@ import { getAIMove, getDifficultyDescription } from "./aiLogic";
 import type { GameState, GameMode, AIDifficulty } from "./types";
 import { Starfield } from "./Starfield";
 import { Confetti } from "./Confetti";
+import { WorldIDVerification } from "../WorldIDVerification";
 import styles from "./ConnectFour.module.css";
 
 // Retro arcade neon colors using CSS variables
@@ -41,6 +42,7 @@ export const ConnectFour = () => {
   const [gameMode, setGameMode] = useState<GameMode | null>(null);
   const [aiDifficulty, setAiDifficulty] = useState<AIDifficulty>("medium");
   const [isAIThinking, setIsAIThinking] = useState(false);
+  const [isVerified, setIsVerified] = useState(false);
 
   const handleReset = useCallback(() => {
     setGameState(createInitialState());
@@ -498,6 +500,38 @@ export const ConnectFour = () => {
           >
             {gameState.status !== "playing" ? "🎮 NEW GAME" : "🔄 RESET"}
           </button>
+        </div>
+
+        {/* Optional World ID Verification for special features */}
+        <div className={`${styles["fade-in"]} mb-6`}>
+          <div className={`${styles["arcade-frame"]} ${styles["crt-effect"]}`}>
+            <h3 className="text-sm font-bold mb-4 text-center font-mono text-gray-400">
+              SPECIAL FEATURES
+            </h3>
+            <div className="text-center">
+              <p className="text-xs text-gray-500 mb-3">
+                Verify your World ID to unlock special game features
+              </p>
+              <WorldIDVerification
+                action="connect-four-special-features"
+                onSuccess={() => {
+                  setIsVerified(true);
+                  console.log("World ID verified for special features!");
+                }}
+                onError={(error) => {
+                  console.error("World ID verification failed:", error);
+                }}
+                buttonText={isVerified ? "✅ Verified" : "🔓 Unlock Features"}
+                disabled={isVerified}
+              />
+              {isVerified && (
+                <p className="text-xs text-green-400 mt-2 font-mono">
+                  🎉 Special features unlocked! You can now access premium game
+                  modes.
+                </p>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Player Legend */}

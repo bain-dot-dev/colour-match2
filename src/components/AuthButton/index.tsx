@@ -1,29 +1,18 @@
 "use client";
 import { walletAuth } from "@/auth/wallet";
 import { Button, LiveFeedback } from "@worldcoin/mini-apps-ui-kit-react";
-import {
-  IDKitWidget,
-  VerificationLevel,
-  ISuccessResult,
-} from "@worldcoin/idkit";
-import {
-  MiniKit,
-  VerifyCommandInput,
-  VerificationLevel as MiniKitVerificationLevel,
-  ResponseEvent,
-} from "@worldcoin/minikit-js";
 import { useMiniKit } from "@worldcoin/minikit-js/minikit-provider";
 import { useCallback, useEffect, useState } from "react";
 
 /**
- * This component is an example of how to authenticate a user
- * We will use Next Auth for this example, but you can use any auth provider
+ * Authentication component using Wallet Authentication as the primary auth flow
+ * This component handles authentication for both World App users and external browsers
  * Read More: https://docs.world.org/mini-apps/commands/wallet-auth
  */
 export const AuthButton = () => {
   const [isPending, setIsPending] = useState(false);
-  const [verificationStatus, setVerificationStatus] = useState<
-    "idle" | "verifying" | "success" | "error"
+  const [authStatus, setAuthStatus] = useState<
+    "idle" | "authenticating" | "success" | "error"
   >("idle");
   const { isInstalled } = useMiniKit();
 
@@ -32,102 +21,29 @@ export const AuthButton = () => {
     isInstalled,
     "isPending:",
     isPending,
-    "verificationStatus:",
-    verificationStatus
+    "authStatus:",
+    authStatus
   );
 
-  // MiniKit wallet authentication for World App users (primary auth flow)
-  const handleMiniKitWalletAuth = useCallback(async () => {
+  // Wallet authentication handler for World App users
+  const handleWalletAuth = useCallback(async () => {
     if (!isInstalled || isPending) {
-      console.warn(
-        "MiniKit wallet auth blocked - MiniKit not installed or pending"
-      );
+      console.warn("Wallet auth blocked - MiniKit not installed or pending");
       return;
     }
 
     setIsPending(true);
-    setVerificationStatus("verifying");
-    console.log("Starting MiniKit wallet authentication...");
+    setAuthStatus("authenticating");
+    console.log("Starting wallet authentication...");
 
     try {
       await walletAuth();
       console.log("Wallet authentication completed successfully");
-      setVerificationStatus("success");
+      setAuthStatus("success");
     } catch (error) {
       console.error("Wallet authentication error:", error);
-      setVerificationStatus("error");
+      setAuthStatus("error");
     } finally {
-      setIsPending(false);
-    }
-  }, [isInstalled, isPending]);
-
-  // MiniKit verification for specific actions (not for login)
-  const handleMiniKitVerification = useCallback(async () => {
-    if (!isInstalled || isPending) {
-      console.warn(
-        "MiniKit verification blocked - MiniKit not installed or pending"
-      );
-      return;
-    }
-
-    setIsPending(true);
-    setVerificationStatus("verifying");
-    console.log("Starting MiniKit World ID verification...");
-
-    try {
-      // Set up verification command payload
-      const verifyPayload: VerifyCommandInput = {
-        action: process.env.NEXT_PUBLIC_ACTION || "verify-action",
-        signal: undefined, // Optional additional data
-        verification_level: MiniKitVerificationLevel.Orb, // Use Orb verification for higher security
-      };
-
-      // Send verification command
-      const payload = MiniKit.commands.verify(verifyPayload);
-      console.log("MiniKit verify command sent:", payload);
-
-      // Set up response listener
-      MiniKit.subscribe(ResponseEvent.MiniAppVerifyAction, async (response) => {
-        console.log("MiniKit verification response:", response);
-
-        if (response.status === "success") {
-          setVerificationStatus("success");
-          console.log("MiniKit verification successful:", response);
-
-          // Send verification to backend
-          try {
-            const verifyResponse = await fetch("/api/verify-proof", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                payload: response,
-                action: process.env.NEXT_PUBLIC_ACTION || "verify-action",
-                signal: undefined,
-              }),
-            });
-
-            if (!verifyResponse.ok) {
-              throw new Error("Verification failed");
-            }
-
-            const data = await verifyResponse.json();
-            console.log("Backend verification successful:", data);
-          } catch (error) {
-            console.error("Backend verification error:", error);
-            setVerificationStatus("error");
-          }
-        } else {
-          console.error("MiniKit verification failed:", response.error_code);
-          setVerificationStatus("error");
-        }
-
-        setIsPending(false);
-      });
-    } catch (error) {
-      console.error("MiniKit verification error:", error);
-      setVerificationStatus("error");
       setIsPending(false);
     }
   }, [isInstalled, isPending]);
@@ -138,112 +54,55 @@ export const AuthButton = () => {
     // Re-enable this if you want auto-login on component mount
   }, [isInstalled]);
 
-  // Handle World ID verification (for external browsers)
-  const handleWorldIDVerify = useCallback(async (proof: ISuccessResult) => {
-    console.log("World ID proof received:", proof);
-    setIsPending(true);
-    setVerificationStatus("verifying");
-
-    try {
-      // Send the proof to your backend for verification
-      const response = await fetch("/api/verify-proof", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          payload: proof,
-          action: process.env.NEXT_PUBLIC_ACTION || "login",
-          signal: undefined,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Verification failed");
-      }
-
-      const data = await response.json();
-      console.log("World ID verification successful:", data);
-      setVerificationStatus("success");
-
-      // Redirect to home after successful verification
-      setTimeout(() => {
-        window.location.href = "/home";
-      }, 1000);
-    } catch (error) {
-      console.error("World ID verification error:", error);
-      setVerificationStatus("error");
-      setIsPending(false);
-      throw error;
-    }
-  }, []);
-
-  const onWorldIDSuccess = useCallback(() => {
-    console.log("World ID success, redirecting...");
-    setIsPending(false);
-    setVerificationStatus("success");
-    // Small delay to show success state before redirect
-    setTimeout(() => {
-      window.location.href = "/home";
-    }, 1000);
-  }, []);
-
-  // If outside World App, show World ID QR code authentication
+  // If outside World App, show message to open in World App
   if (isInstalled === false) {
     return (
       <div className="flex flex-col items-center gap-4">
-        <p className="text-center text-sm text-gray-600">
-          Open this app in World App or verify with World ID
-        </p>
-        <IDKitWidget
-          app_id={process.env.NEXT_PUBLIC_APP_ID as `app_${string}`}
-          action={process.env.NEXT_PUBLIC_ACTION || "login"}
-          onSuccess={onWorldIDSuccess}
-          handleVerify={handleWorldIDVerify}
-          verification_level={VerificationLevel.Device}
+        <div className="text-center">
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">
+            World App Required
+          </h2>
+          <p className="text-sm text-gray-600 mb-4">
+            This app uses Wallet Authentication and requires World App to
+            function.
+          </p>
+        </div>
+
+        <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <h3 className="text-sm font-semibold text-blue-800 mb-2">
+            How to get started:
+          </h3>
+          <ol className="text-xs text-blue-700 space-y-1 list-decimal list-inside">
+            <li>Download World App on your mobile device</li>
+            <li>Open this app within World App</li>
+            <li>Connect your wallet to authenticate</li>
+          </ol>
+        </div>
+
+        <a
+          href="https://worldapp.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sm text-blue-600 hover:text-blue-800 underline"
         >
-          {({ open }) => (
-            <Button
-              onClick={open}
-              disabled={isPending}
-              size="lg"
-              variant="primary"
-            >
-              {verificationStatus === "verifying"
-                ? "Verifying..."
-                : verificationStatus === "success"
-                ? "Verified!"
-                : verificationStatus === "error"
-                ? "Verification Failed"
-                : "Verify with World ID"}
-            </Button>
-          )}
-        </IDKitWidget>
-        <p className="text-xs text-gray-500 text-center">
-          Scan the QR code with World App to continue
-        </p>
-        {verificationStatus === "success" && (
-          <p className="text-xs text-green-600 text-center">
-            ✅ Verification successful! Redirecting...
-          </p>
-        )}
-        {verificationStatus === "error" && (
-          <p className="text-xs text-red-600 text-center">
-            ❌ Verification failed. Please try again.
-          </p>
-        )}
+          Download World App →
+        </a>
       </div>
     );
   }
 
-  // If inside World App, show wallet authentication (primary) + verification (optional)
+  // If inside World App, show wallet authentication
   return (
     <div className="flex flex-col items-center gap-4">
-      <p className="text-center text-sm text-gray-600">
-        Connect your wallet to get started
-      </p>
+      <div className="text-center">
+        <h2 className="text-lg font-semibold text-gray-900 mb-2">
+          Connect Your Wallet
+        </h2>
+        <p className="text-sm text-gray-600">
+          Authenticate using your World App wallet to get started
+        </p>
+      </div>
 
-      {/* Primary: Wallet Authentication */}
       <LiveFeedback
         label={{
           failed: "Authentication failed",
@@ -251,56 +110,49 @@ export const AuthButton = () => {
           success: "Wallet Connected",
         }}
         state={
-          verificationStatus === "error"
+          authStatus === "error"
             ? "failed"
             : isPending
             ? "pending"
-            : verificationStatus === "success"
+            : authStatus === "success"
             ? "success"
             : undefined
         }
       >
         <Button
-          onClick={handleMiniKitWalletAuth}
+          onClick={handleWalletAuth}
           disabled={isPending}
           size="lg"
           variant="primary"
         >
-          {verificationStatus === "verifying"
+          {authStatus === "authenticating"
             ? "Connecting Wallet..."
-            : verificationStatus === "success"
+            : authStatus === "success"
             ? "Wallet Connected"
-            : verificationStatus === "error"
+            : authStatus === "error"
             ? "Connection Failed"
             : "Connect Wallet"}
         </Button>
       </LiveFeedback>
 
-      {/* Optional: World ID Verification */}
-      <div className="mt-4 pt-4 border-t border-gray-200">
-        <p className="text-center text-xs text-gray-500 mb-2">
-          Optional: Verify your World ID
-        </p>
-        <Button
-          onClick={handleMiniKitVerification}
-          disabled={isPending}
-          size="sm"
-          variant="secondary"
-        >
-          Verify World ID
-        </Button>
-      </div>
-
-      {verificationStatus === "success" && (
+      {authStatus === "success" && (
         <p className="text-xs text-green-600 text-center">
-          ✅ Wallet connected successfully!
+          ✅ Wallet connected successfully! Redirecting...
         </p>
       )}
-      {verificationStatus === "error" && (
+      {authStatus === "error" && (
         <p className="text-xs text-red-600 text-center">
           ❌ Connection failed. Please try again.
         </p>
       )}
+
+      <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+        <p className="text-xs text-gray-600 text-center">
+          <strong>Note:</strong> This app uses Wallet Authentication for secure,
+          passwordless login. No World ID verification required for
+          authentication.
+        </p>
+      </div>
     </div>
   );
 };
