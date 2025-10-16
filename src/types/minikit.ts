@@ -26,13 +26,25 @@ export async function getUserByAddressSafe(
     // Import dynamically to avoid SSR issues
     const { MiniKit } = await import("@worldcoin/minikit-js");
     const userInfo = await MiniKit.getUserByAddress(address);
-    return userInfo as MiniKitUser;
+
+    // If no username is set, create a consistent format
+    const finalUsername =
+      userInfo.username || `0x${address.slice(2, 6)}...${address.slice(-4)}`;
+
+    return {
+      ...userInfo,
+      walletAddress: address,
+      username: finalUsername,
+      profilePictureUrl:
+        userInfo.profilePictureUrl ||
+        `https://api.dicebear.com/7.x/avataaars/svg?seed=${address}`,
+    } as MiniKitUser;
   } catch (error) {
     console.warn("Failed to fetch user info from MiniKit:", error);
-    // Return defaults
+    // Return defaults with consistent username format
     return {
       walletAddress: address,
-      username: `User ${address.slice(0, 6)}`,
+      username: `0x${address.slice(2, 6)}...${address.slice(-4)}`,
       profilePictureUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${address}`,
       permissions: {
         notifications: false,
@@ -65,12 +77,14 @@ export async function getUserByUsernameSafe(
  * Formats user data for NextAuth credentials
  */
 export function formatUserForAuth(user: MiniKitUser) {
+  const address = user.walletAddress || "";
   return {
-    walletAddress: user.walletAddress || "",
-    username: user.username || "Anonymous",
+    walletAddress: address,
+    username:
+      user.username || `0x${address.slice(2, 6)}...${address.slice(-4)}`,
     profilePictureUrl:
       user.profilePictureUrl ||
-      `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.walletAddress}`,
+      `https://api.dicebear.com/7.x/avataaars/svg?seed=${address}`,
     permissions: JSON.stringify(user.permissions || {}),
     optedIntoOptionalAnalytics: String(
       user.optedIntoOptionalAnalytics || false
