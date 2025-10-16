@@ -76,7 +76,7 @@ export const AuthButton = () => {
       const nonceResponse = await fetch("/api/nonce");
       const { nonce } = await nonceResponse.json();
 
-      // Request wallet authentication using the correct method
+      // Use the correct wallet authentication method as per documentation
       const authResult = await MiniKit.commandsAsync.walletAuth({
         nonce,
         expirationTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
@@ -84,8 +84,10 @@ export const AuthButton = () => {
         statement: `Sign in to Connect Four\n\nNonce: ${nonce}`,
       });
 
+      console.log("Wallet auth result:", authResult);
+
       if (authResult.finalPayload.status === "success") {
-        // Verify SIWE message
+        // Verify SIWE message on the server
         const verifyResponse = await fetch("/api/complete-siwe", {
           method: "POST",
           headers: {
@@ -98,12 +100,15 @@ export const AuthButton = () => {
         });
 
         const verifyData = await verifyResponse.json();
+        console.log("SIWE verification result:", verifyData);
 
         if (verifyData.isValid) {
-          // Get user info from MiniKit
-          const userInfo = await MiniKit.getUserInfo(
+          // Get user info from MiniKit using the correct method
+          const userInfo = await MiniKit.getUserByAddress(
             authResult.finalPayload.address
           );
+
+          console.log("User info from MiniKit:", userInfo);
 
           // Sign in with NextAuth
           const result = await signIn("credentials", {
@@ -119,6 +124,8 @@ export const AuthButton = () => {
             redirect: false,
           });
 
+          console.log("NextAuth signIn result:", result);
+
           if (result?.ok) {
             setAuthStatus("success");
             router.push("/home");
@@ -131,6 +138,7 @@ export const AuthButton = () => {
           setAuthStatus("error");
         }
       } else {
+        console.error("Wallet auth failed:", authResult.finalPayload);
         setError("Wallet authentication failed. Please try again.");
         setAuthStatus("error");
       }

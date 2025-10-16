@@ -1,6 +1,7 @@
 "use client";
 import { AuthButton } from "../AuthButton";
 // import { DebugInfo } from "../DebugInfo";
+import { WalletAuthDebug } from "../WalletAuthDebug";
 import { useMiniKit } from "@worldcoin/minikit-js/minikit-provider";
 
 /**
@@ -30,6 +31,7 @@ export const VerificationDemo = () => {
         <AuthButton />
 
         {/* <DebugInfo /> */}
+        <WalletAuthDebug />
 
         <div className="mt-6 p-4 bg-gray-50 rounded-lg">
           <h3 className="text-sm font-semibold text-gray-700 mb-2">
