@@ -40,6 +40,15 @@ export default function ClientProviders({
   console.log("🔧 ClientProviders - App ID:", appId);
   console.log("🔧 MiniKit already installed?", MiniKit.isInstalled());
 
+  // Check if we're in World App environment
+  if (typeof window !== "undefined") {
+    console.log("🌍 Environment check:", {
+      hasMiniKit: !!(window as { MiniKit?: unknown }).MiniKit,
+      hasWorldApp: !!(window as { WorldApp?: unknown }).WorldApp,
+      userAgent: window.navigator.userAgent,
+    });
+  }
+
   if (!appId) {
     console.error("❌ NEXT_PUBLIC_APP_ID is not configured!");
     return (
@@ -53,17 +62,26 @@ export default function ClientProviders({
   // This ensures MiniKit is available immediately
   if (typeof window !== "undefined" && !MiniKit.isInstalled()) {
     console.log("📦 Installing MiniKit with App ID:", appId);
+    console.log("📦 Calling MiniKit.install()...");
     try {
-      MiniKit.install(appId);
-      console.log("✅ MiniKit installed successfully");
+      const installResult = MiniKit.install(appId);
+      console.log("✅ MiniKit.install() returned:", installResult);
+      console.log("✅ MiniKit.isInstalled() now:", MiniKit.isInstalled());
     } catch (error) {
       console.error("❌ Failed to install MiniKit:", error);
+      console.error("❌ Error details:", JSON.stringify(error, null, 2));
     }
+  } else if (typeof window !== "undefined") {
+    console.log("ℹ️  MiniKit already installed, skipping installation");
   }
 
   return (
     <ErudaProvider>
-      <MiniKitProvider>
+      <MiniKitProvider
+        props={{
+          appId: appId,
+        }}
+      >
         <SessionProvider session={session}>{children}</SessionProvider>
       </MiniKitProvider>
     </ErudaProvider>
