@@ -1,6 +1,6 @@
 "use client";
 import { AuthButton } from "../AuthButton";
-import { DebugInfo } from "../DebugInfo";
+// import { DebugInfo } from "../DebugInfo";
 import { useMiniKit } from "@worldcoin/minikit-js/minikit-provider";
 
 /**
@@ -15,13 +15,13 @@ export const VerificationDemo = () => {
     <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow-lg">
       <div className="text-center mb-6">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">
-          Wallet Authentication
+          Authentication
         </h1>
         <p className="text-sm text-gray-600">
           {isInstalled === true
-            ? "You're in World App - ready for wallet authentication"
+            ? "You're in World App - using wallet authentication"
             : isInstalled === false
-            ? "You're in a browser - World App required for authentication"
+            ? "You're in a browser - using World ID Kit QR code"
             : "Checking environment..."}
         </p>
       </div>
@@ -29,7 +29,7 @@ export const VerificationDemo = () => {
       <div className="space-y-4">
         <AuthButton />
 
-        <DebugInfo />
+        {/* <DebugInfo /> */}
 
         <div className="mt-6 p-4 bg-gray-50 rounded-lg">
           <h3 className="text-sm font-semibold text-gray-700 mb-2">
@@ -45,10 +45,12 @@ export const VerificationDemo = () => {
               </>
             ) : (
               <>
-                <li>• Download and open World App on your device</li>
-                <li>• Navigate to this app within World App</li>
-                <li>• Connect your wallet to authenticate</li>
-                <li>• Enjoy secure, passwordless access</li>
+                <li>• Scan QR code with World App to verify identity</li>
+                <li>• Complete verification in World App</li>
+                <li>• Return to browser to continue</li>
+                <li>
+                  • Alternative: Open this app in World App for wallet auth
+                </li>
               </>
             )}
           </ul>
@@ -56,13 +58,13 @@ export const VerificationDemo = () => {
 
         <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
           <h4 className="text-xs font-semibold text-blue-800 mb-1">
-            About Wallet Authentication:
+            About Authentication:
           </h4>
           <p className="text-xs text-blue-700">
-            This app uses Wallet Authentication as the primary authentication
-            method. It provides secure, passwordless login using your World App
-            wallet without requiring World ID verification for basic
-            authentication.
+            This app supports dual authentication methods: World ID Kit for
+            browser users and Wallet Authentication for World App users. Both
+            provide secure, passwordless login without requiring additional
+            verification for basic authentication.
           </p>
         </div>
       </div>

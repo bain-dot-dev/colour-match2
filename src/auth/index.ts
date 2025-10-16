@@ -1,73 +1,86 @@
-import { hashNonce } from '@/auth/wallet/client-helpers';
-import {
-  MiniAppWalletAuthSuccessPayload,
-  MiniKit,
-  verifySiweMessage,
-} from '@worldcoin/minikit-js';
-import NextAuth, { type DefaultSession } from 'next-auth';
-import Credentials from 'next-auth/providers/credentials';
+import NextAuth, { type DefaultSession } from "next-auth";
+import Credentials from "next-auth/providers/credentials";
 
-declare module 'next-auth' {
+// Extend NextAuth types
+declare module "next-auth" {
   interface User {
-    walletAddress: string;
-    username: string;
-    profilePictureUrl: string;
+    walletAddress?: string;
+    username?: string;
+    profilePictureUrl?: string;
+    permissions?: {
+      notifications: boolean;
+      contacts: boolean;
+    };
+    optedIntoOptionalAnalytics?: boolean;
+    worldAppVersion?: number;
+    deviceOS?: string;
   }
 
   interface Session {
     user: {
-      walletAddress: string;
-      username: string;
-      profilePictureUrl: string;
-    } & DefaultSession['user'];
+      walletAddress?: string;
+      username?: string;
+      profilePictureUrl?: string;
+      permissions?: {
+        notifications: boolean;
+        contacts: boolean;
+      };
+      optedIntoOptionalAnalytics?: boolean;
+      worldAppVersion?: number;
+      deviceOS?: string;
+    } & DefaultSession["user"];
   }
 }
 
-// Auth configuration for Wallet Auth based sessions
-// For more information on each option (and a full list of options) go to
-// https://authjs.dev/getting-started/authentication/credentials
 export const { handlers, signIn, signOut, auth } = NextAuth({
   secret: process.env.NEXTAUTH_SECRET,
-  session: { strategy: 'jwt' },
+  session: { strategy: "jwt" },
   providers: [
     Credentials({
-      name: 'World App Wallet',
+      name: "Wallet Authentication",
       credentials: {
-        nonce: { label: 'Nonce', type: 'text' },
-        signedNonce: { label: 'Signed Nonce', type: 'text' },
-        finalPayloadJson: { label: 'Final Payload', type: 'text' },
+        walletAddress: { label: "Wallet Address", type: "text" },
+        username: { label: "Username", type: "text" },
+        profilePictureUrl: { label: "Profile Picture URL", type: "text" },
+        permissions: { label: "Permissions", type: "text" },
+        optedIntoOptionalAnalytics: { label: "Analytics Opt-in", type: "text" },
+        worldAppVersion: { label: "World App Version", type: "text" },
+        deviceOS: { label: "Device OS", type: "text" },
       },
-      // @ts-expect-error TODO
-      authorize: async ({
-        nonce,
-        signedNonce,
-        finalPayloadJson,
-      }: {
-        nonce: string;
-        signedNonce: string;
-        finalPayloadJson: string;
-      }) => {
-        const expectedSignedNonce = hashNonce({ nonce });
+      authorize: async (credentials) => {
+        const {
+          walletAddress,
+          username,
+          profilePictureUrl,
+          permissions,
+          optedIntoOptionalAnalytics,
+          worldAppVersion,
+          deviceOS,
+        } = credentials as {
+          walletAddress?: string;
+          username?: string;
+          profilePictureUrl?: string;
+          permissions?: string;
+          optedIntoOptionalAnalytics?: string;
+          worldAppVersion?: string;
+          deviceOS?: string;
+        };
 
-        if (signedNonce !== expectedSignedNonce) {
-          console.log('Invalid signed nonce');
+        if (!walletAddress) {
           return null;
         }
-
-        const finalPayload: MiniAppWalletAuthSuccessPayload =
-          JSON.parse(finalPayloadJson);
-        const result = await verifySiweMessage(finalPayload, nonce);
-
-        if (!result.isValid || !result.siweMessageData.address) {
-          console.log('Invalid final payload');
-          return null;
-        }
-        // Optionally, fetch the user info from your own database
-        const userInfo = await MiniKit.getUserInfo(finalPayload.address);
 
         return {
-          id: finalPayload.address,
-          ...userInfo,
+          id: walletAddress,
+          walletAddress,
+          username,
+          profilePictureUrl,
+          permissions: permissions ? JSON.parse(permissions) : undefined,
+          optedIntoOptionalAnalytics: optedIntoOptionalAnalytics === "true",
+          worldAppVersion: worldAppVersion
+            ? parseInt(worldAppVersion)
+            : undefined,
+          deviceOS,
         };
       },
     }),
@@ -79,18 +92,28 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.walletAddress = user.walletAddress;
         token.username = user.username;
         token.profilePictureUrl = user.profilePictureUrl;
+        token.permissions = user.permissions;
+        token.optedIntoOptionalAnalytics = user.optedIntoOptionalAnalytics;
+        token.worldAppVersion = user.worldAppVersion;
+        token.deviceOS = user.deviceOS;
       }
-
       return token;
     },
     session: async ({ session, token }) => {
       if (token.userId) {
         session.user.id = token.userId as string;
-        session.user.walletAddress = token.address as string;
+        session.user.walletAddress = token.walletAddress as string;
         session.user.username = token.username as string;
         session.user.profilePictureUrl = token.profilePictureUrl as string;
+        session.user.permissions = token.permissions as {
+          notifications: boolean;
+          contacts: boolean;
+        };
+        session.user.optedIntoOptionalAnalytics =
+          token.optedIntoOptionalAnalytics as boolean;
+        session.user.worldAppVersion = token.worldAppVersion as number;
+        session.user.deviceOS = token.deviceOS as string;
       }
-
       return session;
     },
   },
