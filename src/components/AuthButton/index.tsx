@@ -10,6 +10,7 @@ import { useMiniKit } from "@worldcoin/minikit-js/minikit-provider";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
+import type { AuthStatus } from "@/types/verification";
 
 /**
  * Authentication component supporting both World ID Kit and Wallet Authentication
@@ -19,9 +20,7 @@ import { signIn } from "next-auth/react";
  */
 export const AuthButton = () => {
   const [isPending, setIsPending] = useState(false);
-  const [authStatus, setAuthStatus] = useState<
-    "idle" | "authenticating" | "success" | "error"
-  >("idle");
+  const [authStatus, setAuthStatus] = useState<AuthStatus>("idle");
   const [error, setError] = useState<string | null>(null);
   const { isInstalled } = useMiniKit();
   const router = useRouter();
@@ -77,13 +76,15 @@ export const AuthButton = () => {
       const nonceResponse = await fetch("/api/nonce");
       const { nonce } = await nonceResponse.json();
 
-      // Request wallet authentication
-      const authResult = await MiniKit.requestWalletAuth({
+      // Request wallet authentication using the correct method
+      const authResult = await MiniKit.commandsAsync.walletAuth({
         nonce,
-        message: `Sign in to Connect Four\n\nNonce: ${nonce}`,
+        expirationTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        notBefore: new Date(Date.now() - 24 * 60 * 60 * 1000),
+        statement: `Sign in to Connect Four\n\nNonce: ${nonce}`,
       });
 
-      if (authResult.success) {
+      if (authResult.finalPayload.status === "success") {
         // Verify SIWE message
         const verifyResponse = await fetch("/api/complete-siwe", {
           method: "POST",
@@ -91,7 +92,7 @@ export const AuthButton = () => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            payload: authResult.payload,
+            payload: authResult.finalPayload,
             nonce,
           }),
         });
@@ -100,20 +101,21 @@ export const AuthButton = () => {
 
         if (verifyData.isValid) {
           // Get user info from MiniKit
-          const userInfo = await MiniKit.getUserByAddress(
-            authResult.payload.address
+          const userInfo = await MiniKit.getUserInfo(
+            authResult.finalPayload.address
           );
 
           // Sign in with NextAuth
           const result = await signIn("credentials", {
-            walletAddress: authResult.payload.address,
+            walletAddress: authResult.finalPayload.address,
             username: userInfo?.username || "Anonymous",
-            profilePictureUrl: userInfo?.profilePictureUrl,
-            permissions: JSON.stringify(userInfo?.permissions || {}),
-            optedIntoOptionalAnalytics:
-              userInfo?.optedIntoOptionalAnalytics?.toString() || "false",
-            worldAppVersion: userInfo?.worldAppVersion?.toString(),
-            deviceOS: userInfo?.deviceOS,
+            profilePictureUrl:
+              userInfo?.profilePictureUrl ||
+              "https://api.dicebear.com/7.x/avataaars/svg?seed=user",
+            permissions: JSON.stringify({}),
+            optedIntoOptionalAnalytics: "false",
+            worldAppVersion: "",
+            deviceOS: "world-app",
             redirect: false,
           });
 
@@ -245,10 +247,10 @@ export const AuthButton = () => {
           Scan the QR code with World App to continue
         </p>
 
-        {error && <LiveFeedback variant="error">{error}</LiveFeedback>}
+        {error && <LiveFeedback state="failed">{error}</LiveFeedback>}
 
         {authStatus === "success" && (
-          <LiveFeedback variant="success">
+          <LiveFeedback state="success">
             Authentication successful! Redirecting...
           </LiveFeedback>
         )}
@@ -290,10 +292,10 @@ export const AuthButton = () => {
           : "Connect Wallet"}
       </Button>
 
-      {error && <LiveFeedback variant="error">{error}</LiveFeedback>}
+      {error && <LiveFeedback state="failed">{error}</LiveFeedback>}
 
       {authStatus === "success" && (
-        <LiveFeedback variant="success">
+        <LiveFeedback state="success">
           Authentication successful! Redirecting...
         </LiveFeedback>
       )}

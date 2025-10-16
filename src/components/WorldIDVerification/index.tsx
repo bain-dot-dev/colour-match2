@@ -8,15 +8,12 @@ import {
 } from "@worldcoin/minikit-js";
 import { useMiniKit } from "@worldcoin/minikit-js/minikit-provider";
 import { useCallback, useState } from "react";
-
-interface WorldIDVerificationProps {
-  action: string;
-  signal?: string;
-  onSuccess?: (response: any) => void;
-  onError?: (error: any) => void;
-  buttonText?: string;
-  disabled?: boolean;
-}
+import type {
+  VerificationSuccessResponse,
+  VerificationErrorResponse,
+  WorldIDVerificationProps,
+  VerificationStatus,
+} from "@/types/verification";
 
 /**
  * Component for World ID verification for specific actions (not for login)
@@ -32,9 +29,8 @@ export const WorldIDVerification = ({
   disabled = false,
 }: WorldIDVerificationProps) => {
   const [isPending, setIsPending] = useState(false);
-  const [verificationStatus, setVerificationStatus] = useState<
-    "idle" | "verifying" | "success" | "error"
-  >("idle");
+  const [verificationStatus, setVerificationStatus] =
+    useState<VerificationStatus>("idle");
   const { isInstalled } = useMiniKit();
 
   const handleVerification = useCallback(async () => {
@@ -62,53 +58,59 @@ export const WorldIDVerification = ({
       console.log("MiniKit verify command sent:", payload);
 
       // Set up response listener
-      MiniKit.subscribe(ResponseEvent.MiniAppVerifyAction, async (response) => {
-        console.log("MiniKit verification response:", response);
+      MiniKit.subscribe(
+        ResponseEvent.MiniAppVerifyAction,
+        async (response: VerificationErrorResponse) => {
+          console.log("MiniKit verification response:", response);
 
-        if (response.status === "success") {
-          setVerificationStatus("success");
-          console.log("MiniKit verification successful:", response);
+          if (response.status === "success") {
+            setVerificationStatus("success");
+            console.log("MiniKit verification successful:", response);
 
-          // Send verification to backend
-          try {
-            const verifyResponse = await fetch("/api/verify-proof", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                payload: response,
-                action,
-                signal,
-              }),
-            });
+            // Send verification to backend
+            try {
+              const verifyResponse = await fetch("/api/verify-proof", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  payload: response,
+                  action,
+                  signal,
+                }),
+              });
 
-            if (!verifyResponse.ok) {
-              throw new Error("Verification failed");
+              if (!verifyResponse.ok) {
+                throw new Error("Verification failed");
+              }
+
+              const data: VerificationSuccessResponse =
+                await verifyResponse.json();
+              console.log("Backend verification successful:", data);
+
+              // Call success callback
+              onSuccess?.(data);
+            } catch (error) {
+              console.error("Backend verification error:", error);
+              setVerificationStatus("error");
+              onError?.(
+                error instanceof Error ? error : new Error(String(error))
+              );
             }
-
-            const data = await verifyResponse.json();
-            console.log("Backend verification successful:", data);
-
-            // Call success callback
-            onSuccess?.(data);
-          } catch (error) {
-            console.error("Backend verification error:", error);
+          } else {
+            console.error("MiniKit verification failed:", response.error_code);
             setVerificationStatus("error");
-            onError?.(error);
+            onError?.(response);
           }
-        } else {
-          console.error("MiniKit verification failed:", response.error_code);
-          setVerificationStatus("error");
-          onError?.(response);
-        }
 
-        setIsPending(false);
-      });
+          setIsPending(false);
+        }
+      );
     } catch (error) {
       console.error("World ID verification error:", error);
       setVerificationStatus("error");
-      onError?.(error);
+      onError?.(error instanceof Error ? error : new Error(String(error)));
       setIsPending(false);
     }
   }, [isInstalled, isPending, disabled, action, signal, onSuccess, onError]);
