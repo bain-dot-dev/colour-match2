@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Connect Four - World Mini App",
-  description: "Play Connect Four game with friends on World Mini App",
+  title: "FOUR IN A ROW - World Mini App",
+  description: "Play Four In A Row game with friends on World Mini App",
 };
 
 export default async function RootLayout({

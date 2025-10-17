@@ -169,7 +169,7 @@ export const ConnectFour = () => {
         <div className="w-full max-w-2xl relative z-10">
           {/* Retro Header */}
           <div className={`text-center mb-12 ${styles["slide-down"]}`}>
-            <h1 className="arcade-title">CONNECT 4</h1>
+            <h1 className="arcade-title">FOUR IN A ROW</h1>
             <div className="flex items-center justify-center gap-2 text-cyan-400 text-sm md:text-base font-mono">
               <span className="animate-pulse">▶</span>
               <p>ARCADE EDITION</p>
@@ -316,7 +316,9 @@ export const ConnectFour = () => {
       <div className="w-full max-w-3xl relative z-10">
         {/* Game Header */}
         <div className={`text-center mb-6 ${styles["slide-down"]}`}>
-          <h1 className="arcade-title text-5xl md:text-6xl mb-2">CONNECT 4</h1>
+          <h1 className="arcade-title text-5xl md:text-6xl mb-2">
+            FOUR IN A ROW
+          </h1>
           <p className="text-cyan-400 text-sm font-mono flex items-center justify-center gap-2">
             <span className="animate-pulse">▶</span>
             DROP DISCS TO GET 4 IN A ROW
